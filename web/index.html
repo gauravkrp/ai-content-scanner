@@ -170,6 +170,21 @@
     .footer-links a:hover { color: var(--text); }
     .footer-copy { font-size: 13px; color: var(--text-muted); }
 
+    /* ── API Section ── */
+    .api-section { padding: 60px 0; border-top: 1px solid var(--border); }
+    .api-endpoint { margin-bottom: 32px; }
+    .api-method { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; font-family: "SF Mono", Menlo, monospace; margin-right: 8px; }
+    .api-method.post { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
+    .api-path { font-size: 15px; font-weight: 600; font-family: "SF Mono", Menlo, monospace; color: var(--text); }
+    .api-desc { font-size: 14px; color: var(--text-secondary); margin-top: 6px; margin-bottom: 12px; }
+    .api-code { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; font-family: "SF Mono", Menlo, monospace; font-size: 13px; line-height: 1.6; color: #c4c4c8; overflow-x: auto; white-space: pre; margin-bottom: 12px; }
+    .api-code .cmd { color: var(--green); }
+    .api-code .flag { color: var(--amber); }
+    .api-code .str { color: var(--accent); }
+    .api-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 6px; }
+    .api-rate { display: inline-block; margin-top: 12px; padding: 6px 14px; border-radius: 8px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); font-size: 13px; color: var(--amber); }
+    .api-response { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; font-family: "SF Mono", Menlo, monospace; font-size: 12px; line-height: 1.5; color: #9a9a9e; overflow-x: auto; white-space: pre; max-height: 260px; }
+
     @media (max-width: 600px) {
       .hero { padding: 48px 0 32px; }
       .hero-desc { font-size: 16px; }
@@ -191,6 +206,7 @@
       <div class="nav-links">
         <a href="#scanner">Try it</a>
         <a href="#features">Features</a>
+        <a href="#api">API</a>
         <a href="#install">Install</a>
         <a href="https://github.com/gauravkrp/ai-content-scanner" target="_blank">GitHub</a>
       </div>
@@ -241,7 +257,7 @@
     <div class="container">
       <div class="section-label">Try It Now</div>
       <h2>Scan an image</h2>
-      <p class="section-desc">Upload a file or paste a URL to check for AI-generation fingerprints. Runs entirely in your browser &mdash; no data leaves your device.</p>
+      <p class="section-desc">Upload a file or paste a URL to check for AI-generation fingerprints. File uploads run in your browser. URL scans fall back to our API if CORS-blocked.</p>
 
       <div class="scan-box">
         <div class="scan-tabs">
@@ -352,6 +368,74 @@
         <div class="step"><div class="step-num">3</div><div class="step-text">Enable <strong>Developer mode</strong> (toggle in top-right)</div></div>
         <div class="step"><div class="step-num">4</div><div class="step-text">Click <strong>"Load unpacked"</strong> and select the <code>ai-content-scanner</code> folder</div></div>
         <div class="step"><div class="step-num">5</div><div class="step-text">Click the extension icon on any page &mdash; it auto-scans instantly</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- API -->
+  <section class="api-section" id="api">
+    <div class="container">
+      <div class="section-label">Public API</div>
+      <h2>Integrate with your app</h2>
+      <p class="section-desc">Free REST API to scan images and analyze text for AI-generation signals. No API key needed.</p>
+      <div class="api-rate">Rate limit: 30 requests / minute per IP</div>
+
+      <div class="api-endpoint" style="margin-top: 32px;">
+        <div>
+          <span class="api-method post">POST</span>
+          <span class="api-path">/api/scan</span>
+        </div>
+        <div class="api-desc">Scan an image for AI-generation fingerprints. Send a file or URL.</div>
+
+        <div class="api-label">Request (URL)</div>
+        <div class="api-code"><span class="cmd">curl</span> <span class="flag">-X POST</span> https://ai-content-scanner.vercel.app/api/scan \
+  <span class="flag">-H</span> <span class="str">"Content-Type: application/json"</span> \
+  <span class="flag">-d</span> <span class="str">'{"url": "https://example.com/image.jpg"}'</span></div>
+
+        <div class="api-label">Request (File upload)</div>
+        <div class="api-code"><span class="cmd">curl</span> <span class="flag">-X POST</span> https://ai-content-scanner.vercel.app/api/scan \
+  <span class="flag">-F</span> <span class="str">"file=@photo.jpg"</span></div>
+
+        <div class="api-label">Response</div>
+        <div class="api-response">{
+  "ok": true,
+  "result": {
+    "verdict": "ai_detected",
+    "confidence": 95,
+    "source": "DALL-E",
+    "reasons": ["C2PA Content Credentials found..."],
+    "fingerprint": { "c2pa": "JUMBF superbox detected" },
+    "exif": { "Creator Tool": "DALL-E 3" },
+    "fileSize": "1.2 MB"
+  }
+}</div>
+      </div>
+
+      <div class="api-endpoint">
+        <div>
+          <span class="api-method post">POST</span>
+          <span class="api-path">/api/analyze-text</span>
+        </div>
+        <div class="api-desc">Analyze text for LLM-generation heuristics (phrases, uniformity, transitions).</div>
+
+        <div class="api-label">Request</div>
+        <div class="api-code"><span class="cmd">curl</span> <span class="flag">-X POST</span> https://ai-content-scanner.vercel.app/api/analyze-text \
+  <span class="flag">-H</span> <span class="str">"Content-Type: application/json"</span> \
+  <span class="flag">-d</span> <span class="str">'{"text": "Your 300+ character text..."}'</span></div>
+
+        <div class="api-label">Response</div>
+        <div class="api-response">{
+  "ok": true,
+  "result": {
+    "verdict": "likely_ai",
+    "confidence": 65,
+    "source": "LLM (heuristic)",
+    "score": 50,
+    "reasons": ["Contains 5 common LLM phrases..."],
+    "metadata": { "wordCount": "423", "sentenceCount": "18" },
+    "fingerprint": { "method": "Statistical heuristics", "heuristicScore": "50/85" }
+  }
+}</div>
       </div>
     </div>
   </section>
@@ -696,13 +780,29 @@
 
     document.getElementById("scanUrlBtn").textContent = "Scanning\u2026";
     try {
+      // Try client-side first (faster, no rate limit)
       const resp = await fetch(url, { mode: "cors" });
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       const buffer = await resp.arrayBuffer();
       const result = scanBuffer(buffer, url);
       renderScanResult(result);
-    } catch (err) {
-      showScanError("Could not fetch image (CORS blocked or URL unreachable). Try downloading and uploading instead.");
+    } catch {
+      // CORS blocked — fall back to server-side API
+      try {
+        const apiResp = await fetch("/api/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const data = await apiResp.json();
+        if (data.ok) {
+          renderScanResult(data.result);
+        } else {
+          showScanError(data.error?.message || "API scan failed. Try uploading instead.");
+        }
+      } catch {
+        showScanError("Could not fetch image. Try downloading and uploading instead.");
+      }
     } finally {
       document.getElementById("scanUrlBtn").textContent = "Scan";
     }

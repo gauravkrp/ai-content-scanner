@@ -1,0 +1,12 @@
+{
+  "name": "ai-content-scanner",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Detect AI-generated images, videos, and text — Chrome extension + API",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0"
+  }
+}

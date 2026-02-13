@@ -15,6 +15,7 @@ A Chrome extension that scans any webpage and flags AI-generated content (images
 - **URL scanning** — Paste any image or video URL directly in the popup to check it
 - **Page overlays** — Badges on detected content with hover tooltips showing details
 - **Text analysis** — Heuristic detection of LLM-generated text blocks
+- **Public API** — REST endpoints for image scanning and text analysis (hosted on Vercel)
 
 ## What It Detects
 
@@ -100,6 +101,86 @@ See [PUBLISHING.md](PUBLISHING.md) for instructions on publishing to the Chrome 
 3. Click **"Check"** (or press Enter)
 4. The result appears inline with full detection details
 
+## API
+
+The project includes a public REST API hosted on Vercel. No auth required — rate-limited to 30 requests/minute per IP.
+
+**Base URL**: `https://ai-content-scanner.vercel.app`
+
+### `POST /api/scan` — Image scanning
+
+Accepts an image via file upload or URL. Returns verdict, confidence, source, fingerprint, and EXIF metadata.
+
+**Option 1: URL**
+```bash
+curl -X POST https://ai-content-scanner.vercel.app/api/scan \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/image.jpg"}'
+```
+
+**Option 2: File upload**
+```bash
+curl -X POST https://ai-content-scanner.vercel.app/api/scan \
+  -F "file=@photo.jpg"
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "result": {
+    "verdict": "ai_detected",
+    "confidence": 95,
+    "source": "DALL-E",
+    "reasons": ["C2PA Content Credentials found...", "AI tool signature in metadata: \"DALL-E\"."],
+    "fingerprint": { "c2pa": "JUMBF superbox detected", "software": "dall-e" },
+    "exif": { "Creator Tool": "DALL-E 3", "Document ID": "xmp.did:..." },
+    "fileSize": "1.2 MB"
+  }
+}
+```
+
+### `POST /api/analyze-text` — Text analysis
+
+Analyzes text for LLM-generation patterns.
+
+```bash
+curl -X POST https://ai-content-scanner.vercel.app/api/analyze-text \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Your 300+ character text here..."}'
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "result": {
+    "verdict": "likely_ai",
+    "confidence": 65,
+    "source": "LLM (heuristic)",
+    "score": 50,
+    "reasons": ["Contains 5 common LLM phrases..."],
+    "metadata": { "wordCount": "423", "sentenceCount": "18" },
+    "fingerprint": { "method": "Statistical heuristics", "heuristicScore": "50/85" }
+  }
+}
+```
+
+### Error responses
+
+```json
+{ "ok": false, "error": { "code": "RATE_LIMITED", "message": "Too many requests..." } }
+```
+
+| Code | Status | Meaning |
+|---|---|---|
+| `INVALID_INPUT` | 400 | Missing/invalid request body |
+| `FILE_TOO_LARGE` | 413 | Exceeds 4 MB limit |
+| `FETCH_FAILED` | 422 | Could not fetch the provided URL |
+| `RATE_LIMITED` | 429 | Too many requests (30/min) |
+| `METHOD_NOT_ALLOWED` | 405 | Non-POST request |
+| `INTERNAL_ERROR` | 500 | Unexpected server error |
+
 ## Architecture
 
 ```
@@ -110,6 +191,14 @@ ai-content-scanner/
 ├── content.css         # Overlay badge, tooltip, and text highlight styles
 ├── popup.html          # Extension popup UI (400px, dark theme)
 ├── popup.js            # Popup logic — auto-scan, URL check, result rendering
+├── lib/
+│   └── scanner.js      # Shared scanning module (used by API)
+├── api/
+│   ├── scan.js         # POST /api/scan — image scanning endpoint
+│   └── analyze-text.js # POST /api/analyze-text — text analysis endpoint
+├── middleware.js        # Vercel Edge Middleware — rate limiting
+├── vercel.json          # Vercel routing + CORS config
+├── package.json         # Dependencies (busboy)
 ├── icons/
 │   ├── icon16.png      # Toolbar icon
 │   ├── icon48.png      # Extension management page
@@ -191,8 +280,11 @@ The `/web` folder contains a single-page landing site with:
 
 - Animated stats counters (downloads, scans, media analyzed)
 - **Live scanner tool** — upload a file (drag & drop) or paste a URL to scan client-side
+- **API documentation** — interactive examples and endpoint reference
 - Feature grid, verdict scale explanation, installation steps
 - Runs entirely client-side with the same detection logic as the extension
+
+**Live**: [ai-content-scanner.vercel.app](https://ai-content-scanner.vercel.app/)
 
 ## Limitations
 
