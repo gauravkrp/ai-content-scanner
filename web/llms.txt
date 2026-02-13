@@ -1,0 +1,63 @@
+# AI Content Scanner
+
+> A free, open-source Chrome extension that detects AI-generated images, videos, and text on any webpage.
+
+## What it does
+
+AI Content Scanner scans webpages and flags AI-generated content by analyzing metadata fingerprints, provenance standards, and heuristic patterns. It shows confidence scores, identifies the AI source tool, and surfaces full metadata details.
+
+## Detection methods
+
+### Images & Video
+- C2PA / JUMBF: Cryptographic provenance metadata embedded in file binary
+- EXIF / XMP software tags: Software, CreatorTool, ImageDescription, DocumentID, InstanceID and 17+ XMP fields
+- IPTC DigitalSourceType: Checks for trainedAlgorithmicMedia tag
+- SynthID markers: Text references to Google's watermark system
+- URL pattern matching: Recognizes AI service hostnames (OpenAI CDN, Replicate, fal.ai, Stability AI, Leonardo, RunwayML, Pika, etc.)
+- Alt text / captions: Checks for "AI generated" and tool names in alt/title attributes
+
+### Text
+- LLM phrase detection: Flags overuse of phrases common in AI output
+- Sentence uniformity: Measures coefficient of variation in sentence lengths
+- Paragraph uniformity: Same analysis at paragraph level
+- Transition word density: Flags unusually high density of connecting words
+- Formality analysis: Detects lack of colloquialisms in long-form text
+
+## Key features
+- Auto-scans when you click the extension icon
+- Confidence scoring: 0-100% for every detection
+- Source identification: DALL-E, Midjourney, Stable Diffusion, Adobe Firefly, Google Imagen, Runway, Pika, Kling, Sora, Leonardo AI, and 40+ more
+- Fingerprint data: C2PA provenance, IPTC tags, SynthID markers
+- Full metadata: EXIF, XMP (17+ fields), embedded document/instance IDs
+- URL scanning: Paste any image/video URL to check it directly
+- Page overlays: Badges on detected content with hover tooltips
+- All analysis runs locally in the browser — no data sent to external servers
+
+## Verdict scale
+- AI Detected: Hard evidence found (C2PA, EXIF tool name, IPTC tag). Confidence 85-99%.
+- Likely AI: Strong circumstantial evidence. Confidence 50-85%.
+- Uncertain: Some signals present but inconclusive. Confidence 30-50%.
+- Likely Real: No AI signals detected. Confidence below 30%.
+- No Metadata: Could not read metadata (CORS blocked, stripped, etc.).
+
+## Confidence calculation
+Confidence is calculated by combining independent signal weights: 1 - (1-w1)(1-w2)...(1-wn), capped at 99%.
+- C2PA markers: 95%
+- IPTC DigitalSourceType: 92%
+- EXIF AI signature: 90%
+- SynthID detected: 90%
+- URL pattern match: 65%
+- Alt text mention: 55%
+
+## Links
+- Website: https://ai-content-scanner.vercel.app/
+- GitHub: https://github.com/gauravkrp/ai-content-scanner
+- Author: Gaurav Pandey (https://gauravkrp.com)
+- C2PA Verify: https://contentcredentials.org/verify
+
+## Technical details
+- Chrome Extension Manifest V3
+- No external dependencies or build tools
+- Content script performs binary analysis of image files
+- Background service worker handles CORS-bypassed fetching
+- All scanning logic runs client-side

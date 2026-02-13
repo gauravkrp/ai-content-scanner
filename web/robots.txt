@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ai-content-scanner.vercel.app/sitemap.xml
