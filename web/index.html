@@ -221,6 +221,7 @@
       .features { padding: 48px 0; }
       .feature-grid { grid-template-columns: 1fr; margin-top: 32px; }
       .feature-card { padding: 20px; }
+      .use-cases { padding: 48px 0; }
       .verdicts { padding: 32px 0 48px; }
       .verdict-list { gap: 10px; margin-top: 24px; }
       .verdict-chip { padding: 8px 14px; font-size: 13px; }
@@ -273,6 +274,8 @@
       .features { padding: 40px 0; }
       .feature-card h3 { font-size: 14px; }
       .feature-card p { font-size: 12px; }
+      .use-cases { padding: 40px 0; }
+      .use-cases .section-desc { margin-bottom: 28px; padding: 0 8px; }
       .verdict-list { flex-direction: column; align-items: stretch; margin-top: 20px; }
       .verdict-chip { justify-content: flex-start; }
       .install { padding: 40px 0; }
@@ -465,6 +468,47 @@
         <div class="verdict-chip"><div class="verdict-dot" style="background:#818cf8"></div>Uncertain<span class="verdict-desc">Some signals, inconclusive</span></div>
         <div class="verdict-chip"><div class="verdict-dot" style="background:#34d399"></div>Likely Real<span class="verdict-desc">No AI signals found</span></div>
         <div class="verdict-chip"><div class="verdict-dot" style="background:#6b7280"></div>No Metadata<span class="verdict-desc">CORS blocked / stripped</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Where & when to use -->
+  <section class="use-cases" id="use-cases">
+    <div class="container">
+      <div class="section-label">Where &amp; when</div>
+      <h2>Use it on any site, in any scenario</h2>
+      <p class="section-desc">Install the extension once and use it on any webpage in Chrome. Or use the tool above to upload a file or paste a URL without installing anything.</p>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F4FA;</div>
+          <h3>Social media &amp; feeds</h3>
+          <p>Scan images and posts as you scroll — X/Twitter, LinkedIn, Reddit, Facebook, Instagram (web), and similar. See at a glance which content is likely AI-generated before you like, share, or cite it.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F4F0;</div>
+          <h3>News &amp; articles</h3>
+          <p>Check photos and illustrations in news stories, blogs, and magazines. Verify whether visuals are human-sourced or show AI metadata before you trust or share the story.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F4DA;</div>
+          <h3>Research &amp; citations</h3>
+          <p>When reading papers, reports, or documentation, run a quick scan on figures and quoted text. Helps you assess provenance and decide how to credit or question sources.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F6D2;</div>
+          <h3>Shopping &amp; listings</h3>
+          <p>On marketplaces, storefronts, or classifieds, spot AI-generated or heavily edited product photos. Useful when authenticity and real photos matter for your purchase.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F50E;</div>
+          <h3>Fact-checking &amp; virals</h3>
+          <p>Viral images and memes often lack clear attribution. Scan to see if metadata or URL patterns suggest AI origin, so you can share or debunk with more context.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F4BC;</div>
+          <h3>Content &amp; creative work</h3>
+          <p>When curating assets, commissioning work, or reviewing submissions, quickly check whether images or copy carry AI-generation signals so you can attribute or policy accordingly.</p>
+        </div>
       </div>
     </div>
   </section>
