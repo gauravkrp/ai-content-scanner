@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=400" />
+  <title>AI Content Scanner</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #0a0a0b;
+      --bg-secondary: #141416;
+      --bg-card: #1a1a1e;
+      --bg-hover: #222226;
+      --border: rgba(255, 255, 255, 0.08);
+      --text-primary: #f0f0f0;
+      --text-secondary: #8a8a8e;
+      --text-muted: #555;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --indigo: #818cf8;
+      --green: #34d399;
+      --gray: #6b7280;
+      --accent: #3b82f6;
+    }
+
+    body {
+      width: 380px;
+      min-height: 200px;
+      max-height: 560px;
+      overflow-y: auto;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body::-webkit-scrollbar { width: 6px; }
+    body::-webkit-scrollbar-track { background: transparent; }
+    body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+    /* ── Header ── */
+    .header {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(59, 130, 246, 0.06) 0%, transparent 100%);
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .logo-text {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-text span {
+      color: var(--text-secondary);
+      font-weight: 400;
+      font-size: 11px;
+      margin-left: 4px;
+    }
+
+    /* ── Scan Button ── */
+    .scan-btn {
+      padding: 7px 16px;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .scan-btn:hover { background: #2563eb; transform: translateY(-1px); }
+    .scan-btn:active { transform: scale(0.97); }
+
+    .scan-btn.scanning {
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      cursor: wait;
+    }
+
+    .scan-btn .spinner {
+      display: none;
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    .scan-btn.scanning .spinner { display: block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Summary Cards ── */
+    .summary {
+      padding: 14px 18px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+      border: 1px solid var(--border);
+      transition: border-color 0.2s;
+    }
+
+    .stat-card:hover { border-color: rgba(255,255,255,0.15); }
+
+    .stat-number {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+
+    .stat-label {
+      font-size: 10.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 3px;
+    }
+
+    .stat-number.red { color: var(--red); }
+    .stat-number.amber { color: var(--amber); }
+    .stat-number.green { color: var(--green); }
+
+    /* ── Verdict Legend ── */
+    .legend {
+      padding: 0 18px 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10.5px;
+      color: var(--text-secondary);
+    }
+
+    .legend-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Results List ── */
+    .section-header {
+      padding: 8px 18px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-item {
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      transition: background 0.15s;
+    }
+
+    .result-item:hover { background: var(--bg-hover); }
+
+    .result-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+
+    .result-content { flex: 1; min-width: 0; }
+
+    .result-verdict {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .result-reason {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .result-meta {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 3px;
+      word-break: break-all;
+    }
+
+    .result-type-tag {
+      font-size: 9.5px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+
+    /* ── Empty State ── */
+    .empty-state {
+      padding: 36px 18px;
+      text-align: center;
+    }
+
+    .empty-icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+      opacity: 0.5;
+    }
+
+    .empty-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .empty-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      max-width: 260px;
+      margin: 0 auto;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 10px 18px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--text-muted);
+      text-align: center;
+      background: var(--bg-secondary);
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .footer a:hover { text-decoration: underline; }
+
+    /* ── Dot colors ── */
+    .dot-red { background: var(--red); }
+    .dot-amber { background: var(--amber); }
+    .dot-indigo { background: var(--indigo); }
+    .dot-green { background: var(--green); }
+    .dot-gray { background: var(--gray); }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-row">
+      <div class="logo">
+        <div class="logo-icon">🔍</div>
+        <div class="logo-text">
+          AI Scanner
+          <span>v1.0</span>
+        </div>
+      </div>
+      <button id="scanBtn" class="scan-btn">
+        <div class="spinner"></div>
+        <span id="scanBtnText">Scan Page</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="summary" id="summary" style="display:none;">
+    <div class="stat-card">
+      <div class="stat-number red" id="aiCount">0</div>
+      <div class="stat-label">AI Detected</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number amber" id="suspectCount">0</div>
+      <div class="stat-label">Suspicious</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number green" id="cleanCount">0</div>
+      <div class="stat-label">Clean / None</div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend" id="legend" style="display:none;">
+    <div class="legend-item"><div class="legend-dot dot-red"></div> AI Detected</div>
+    <div class="legend-item"><div class="legend-dot dot-amber"></div> Likely AI</div>
+    <div class="legend-item"><div class="legend-dot dot-indigo"></div> Uncertain</div>
+    <div class="legend-item"><div class="legend-dot dot-green"></div> Likely Real</div>
+    <div class="legend-item"><div class="legend-dot dot-gray"></div> No Metadata</div>
+  </div>
+
+  <!-- Results -->
+  <div id="results"></div>
+
+  <!-- Empty state -->
+  <div class="empty-state" id="emptyState">
+    <div class="empty-icon">🛡️</div>
+    <div class="empty-title">Ready to scan</div>
+    <div class="empty-desc">
+      Click "Scan Page" to analyze all images, videos, and text on this page for AI-generation fingerprints.
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Checks C2PA · EXIF · XMP · IPTC · SynthID markers · URL patterns · text heuristics
+    <br />
+    Verify images at <a href="https://contentcredentials.org/verify" target="_blank">contentcredentials.org/verify</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

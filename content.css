@@ -1,0 +1,160 @@
+/* ============================================================
+   AI Content Scanner — Page Overlay Styles
+   ============================================================ */
+
+.acs-badge-wrapper {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2147483640;
+  pointer-events: auto;
+}
+
+.acs-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 6px;
+  background: rgba(15, 15, 15, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: default;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: #e5e5e5;
+  white-space: nowrap;
+  pointer-events: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.acs-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.acs-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: acs-pulse 2s ease-in-out infinite;
+}
+
+@keyframes acs-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.acs-badge-label {
+  letter-spacing: 0.02em;
+}
+
+/* ── Tooltip ── */
+
+.acs-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 260px;
+  max-width: 360px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #d4d4d4;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  z-index: 2147483641;
+  pointer-events: none;
+}
+
+.acs-tooltip-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.acs-tooltip-reasons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.acs-tooltip-reasons li {
+  padding: 3px 0;
+  padding-left: 14px;
+  position: relative;
+  font-size: 11.5px;
+  color: #b0b0b0;
+}
+
+.acs-tooltip-reasons li::before {
+  content: "›";
+  position: absolute;
+  left: 0;
+  color: #888;
+  font-weight: 700;
+}
+
+.acs-tooltip-meta {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.acs-tooltip-meta span {
+  font-size: 10.5px;
+  color: #808080;
+}
+
+.acs-tooltip-meta b {
+  color: #999;
+  font-weight: 600;
+}
+
+/* ── Text highlights ── */
+
+.acs-text-highlight {
+  position: relative;
+}
+
+.acs-text-highlight > .acs-badge {
+  position: relative;
+  float: right;
+  margin: 0 0 4px 8px;
+}
+
+.acs-text-likely-ai {
+  border-left: 3px solid #f59e0b !important;
+  padding-left: 12px !important;
+  background: rgba(245, 158, 11, 0.04) !important;
+}
+
+.acs-text-ai-detected {
+  border-left: 3px solid #ef4444 !important;
+  padding-left: 12px !important;
+  background: rgba(239, 68, 68, 0.04) !important;
+}
+
+.acs-text-uncertain {
+  border-left: 3px solid #6366f1 !important;
+  padding-left: 12px !important;
+  background: rgba(99, 102, 241, 0.04) !important;
+}
