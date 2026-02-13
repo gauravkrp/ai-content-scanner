@@ -55,6 +55,13 @@
   letter-spacing: 0.02em;
 }
 
+.acs-badge-confidence {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin-left: 2px;
+}
+
 /* ── Tooltip ── */
 
 .acs-tooltip {
@@ -62,8 +69,8 @@
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  min-width: 260px;
-  max-width: 360px;
+  min-width: 280px;
+  max-width: 380px;
   padding: 12px 14px;
   border-radius: 10px;
   background: rgba(10, 10, 10, 0.95);
@@ -83,9 +90,19 @@
   font-size: 13px;
   font-weight: 700;
   color: #fff;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.acs-tooltip-source {
+  font-size: 12px;
+  color: #60a5fa;
+  margin-bottom: 6px;
+}
+
+.acs-tooltip-source b {
+  color: #93c5fd;
 }
 
 .acs-tooltip-reasons {
@@ -103,13 +120,48 @@
 }
 
 .acs-tooltip-reasons li::before {
-  content: "›";
+  content: "\203A";
   position: absolute;
   left: 0;
   color: #888;
   font-weight: 700;
 }
 
+/* Tooltip sections (fingerprint, metadata) */
+.acs-tooltip-section {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.acs-tooltip-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.acs-tooltip-section span {
+  display: block;
+  font-size: 10.5px;
+  color: #808080;
+  padding: 1px 0;
+}
+
+.acs-tooltip-section b {
+  color: #999;
+  font-weight: 600;
+}
+
+.acs-tooltip-more {
+  font-size: 10px;
+  color: #555;
+  font-style: italic;
+}
+
+/* Legacy meta (kept for compat) */
 .acs-tooltip-meta {
   margin-top: 8px;
   padding-top: 6px;

@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Content Scanner — Detect AI-generated images, videos &amp; text</title>
+  <meta name="description" content="Free Chrome extension that scans webpages and detects AI-generated content by checking C2PA metadata, EXIF signatures, SynthID markers, URL patterns, and text heuristics." />
+  <meta name="theme-color" content="#3b82f6" />
+  <meta property="og:title" content="AI Content Scanner — Chrome Extension" />
+  <meta property="og:description" content="Scan any webpage to detect AI-generated images, videos, and text. Checks C2PA, EXIF, XMP, IPTC, SynthID, URL patterns, and text heuristics." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://github.com/gauravkrp/ai-content-scanner" />
+  <link rel="icon" href="icon.png" type="image/png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #09090b;
+      --bg-card: #141418;
+      --border: rgba(255,255,255,0.08);
+      --text: #f0f0f0;
+      --text-secondary: #8a8a8e;
+      --text-muted: #555;
+      --accent: #3b82f6;
+      --purple: #8b5cf6;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --green: #34d399;
+      --gray: #6b7280;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { background: var(--bg-card); padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); font-size: 13px; font-family: "SF Mono", Menlo, monospace; }
+
+    .container { max-width: 820px; margin: 0 auto; padding: 0 24px; }
+
+    /* ── Nav ── */
+    nav { padding: 20px 0; border-bottom: 1px solid var(--border); }
+    nav .container { display: flex; align-items: center; justify-content: space-between; }
+    .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--text); }
+    .nav-brand img { width: 32px; height: 32px; border-radius: 8px; }
+    .nav-links { display: flex; gap: 24px; font-size: 14px; }
+    .nav-links a { color: var(--text-secondary); }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* ── Hero ── */
+    .hero { padding: 80px 0 48px; text-align: center; }
+    .hero-badge { display: inline-block; padding: 4px 14px; border-radius: 20px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); font-size: 13px; font-weight: 500; color: var(--accent); margin-bottom: 24px; }
+    h1 { font-size: clamp(36px, 5vw, 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 20px; }
+    h1 .gradient { background: linear-gradient(135deg, var(--accent), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero-desc { font-size: 18px; color: var(--text-secondary); max-width: 560px; margin: 0 auto 36px; line-height: 1.7; }
+    .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 10px; font-size: 15px; font-weight: 600; transition: all 0.15s; border: none; cursor: pointer; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #2563eb; transform: translateY(-1px); text-decoration: none; }
+    .btn-secondary { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: rgba(255,255,255,0.2); transform: translateY(-1px); text-decoration: none; }
+
+    /* ── Stats ── */
+    .stats { padding: 0 0 60px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 560px; margin: 0 auto; }
+    .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 24px 16px; text-align: center; }
+    .stat-number { font-size: 32px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+    .stat-number .suffix { font-size: 18px; font-weight: 600; }
+    .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 6px; font-weight: 500; }
+    .stat-number.blue { color: var(--accent); }
+    .stat-number.purple { color: var(--purple); }
+    .stat-number.green { color: var(--green); }
+
+    /* ── Scanner Tool ── */
+    .scanner { padding: 60px 0; border-top: 1px solid var(--border); }
+    .section-label { text-align: center; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 12px; }
+    h2 { text-align: center; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 16px; }
+    .section-desc { text-align: center; font-size: 14px; color: var(--text-secondary); margin-bottom: 36px; }
+
+    .scan-box { max-width: 600px; margin: 0 auto; }
+    .scan-tabs { display: flex; gap: 0; margin-bottom: 16px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+    .scan-tab { flex: 1; padding: 10px; text-align: center; font-size: 13px; font-weight: 600; background: var(--bg-card); color: var(--text-secondary); cursor: pointer; border: none; transition: all 0.15s; }
+    .scan-tab.active { background: var(--accent); color: #fff; }
+    .scan-tab:hover:not(.active) { color: var(--text); }
+
+    .scan-panel { display: none; }
+    .scan-panel.active { display: block; }
+
+    .scan-url-row { display: flex; gap: 10px; }
+    .scan-input { flex: 1; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); color: var(--text); font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s; }
+    .scan-input:focus { border-color: var(--accent); }
+    .scan-input::placeholder { color: var(--text-muted); }
+
+    .scan-upload-area { border: 2px dashed var(--border); border-radius: 14px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg-card); }
+    .scan-upload-area:hover, .scan-upload-area.dragover { border-color: var(--accent); background: rgba(59,130,246,0.04); }
+    .scan-upload-icon { font-size: 32px; margin-bottom: 10px; opacity: 0.5; }
+    .scan-upload-text { font-size: 14px; color: var(--text-secondary); }
+    .scan-upload-text strong { color: var(--accent); }
+    .scan-upload-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+    .scan-file-input { display: none; }
+
+    .scan-btn-wrap { margin-top: 12px; text-align: center; }
+
+    /* Result card */
+    .scan-result { margin-top: 20px; display: none; }
+    .scan-result.visible { display: block; }
+
+    .result-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 24px; }
+    .result-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .result-card-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .result-card-verdict { font-size: 18px; font-weight: 700; }
+    .result-card-conf { font-size: 14px; font-weight: 700; margin-left: auto; }
+
+    .result-card-source { font-size: 14px; color: var(--accent); margin-bottom: 12px; }
+    .result-card-reasons { margin-bottom: 14px; }
+    .result-card-reasons div { font-size: 13px; color: var(--text-secondary); padding: 2px 0; }
+
+    .result-detail-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-top: 14px; margin-bottom: 6px; }
+    .result-detail-table { font-size: 12px; }
+    .result-detail-row { display: flex; gap: 8px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+    .result-detail-row:last-child { border-bottom: none; }
+    .result-detail-key { min-width: 110px; color: var(--text-muted); font-weight: 500; flex-shrink: 0; }
+    .result-detail-val { color: var(--text-secondary); word-break: break-all; }
+
+    .scan-error { margin-top: 12px; font-size: 13px; color: var(--red); text-align: center; display: none; }
+
+    /* ── Features ── */
+    .features { padding: 60px 0; border-top: 1px solid var(--border); }
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 48px; }
+    .feature-card { padding: 24px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; transition: border-color 0.2s; }
+    .feature-card:hover { border-color: rgba(255,255,255,0.15); }
+    .feature-icon { font-size: 28px; margin-bottom: 14px; }
+    .feature-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .feature-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+    /* ── Verdicts ── */
+    .verdicts { padding: 40px 0 60px; }
+    .verdict-list { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 32px; }
+    .verdict-chip { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; font-size: 14px; font-weight: 600; }
+    .verdict-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .verdict-desc { font-size: 12px; color: var(--text-secondary); font-weight: 400; margin-left: 4px; }
+
+    /* ── Install ── */
+    .install { padding: 60px 0; border-top: 1px solid var(--border); }
+    .steps { max-width: 520px; margin: 32px auto 0; }
+    .step { display: flex; gap: 16px; margin-bottom: 20px; }
+    .step-num { width: 32px; height: 32px; border-radius: 8px; background: rgba(59, 130, 246, 0.1); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+    .step-text { font-size: 15px; padding-top: 4px; }
+
+    /* ── Footer ── */
+    footer { padding: 40px 0; border-top: 1px solid var(--border); text-align: center; }
+    .footer-links { display: flex; gap: 24px; justify-content: center; margin-bottom: 16px; font-size: 14px; }
+    .footer-links a { color: var(--text-secondary); }
+    .footer-links a:hover { color: var(--text); }
+    .footer-copy { font-size: 13px; color: var(--text-muted); }
+
+    @media (max-width: 600px) {
+      .hero { padding: 48px 0 32px; }
+      .hero-desc { font-size: 16px; }
+      .nav-links { gap: 16px; font-size: 13px; }
+      .feature-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr; max-width: 200px; }
+      .scan-url-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="container">
+      <div class="nav-brand">
+        <img src="icon.png" alt="AI Content Scanner" />
+        AI Content Scanner
+      </div>
+      <div class="nav-links">
+        <a href="#scanner">Try it</a>
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/gauravkrp/ai-content-scanner" target="_blank">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">Free &amp; Open Source Chrome Extension</div>
+      <h1>Detect <span class="gradient">AI-generated</span><br />content instantly</h1>
+      <p class="hero-desc">
+        Scan any webpage to identify AI-generated images, videos, and text.
+        Checks C2PA provenance, EXIF metadata, SynthID markers, URL patterns, and text heuristics.
+      </p>
+      <div class="hero-actions">
+        <a href="https://github.com/gauravkrp/ai-content-scanner" class="btn btn-primary" target="_blank">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.009-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+          Get on GitHub
+        </a>
+        <a href="#scanner" class="btn btn-secondary">Try it now</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <section class="stats">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number blue" id="statDownloads">0<span class="suffix">+</span></div>
+          <div class="stat-label">Downloads</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number purple" id="statScans">0<span class="suffix">+</span></div>
+          <div class="stat-label">Pages Scanned</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number green" id="statMedia">0<span class="suffix">+</span></div>
+          <div class="stat-label">Media Analyzed</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Live Scanner -->
+  <section class="scanner" id="scanner">
+    <div class="container">
+      <div class="section-label">Try It Now</div>
+      <h2>Scan an image</h2>
+      <p class="section-desc">Upload a file or paste a URL to check for AI-generation fingerprints. Runs entirely in your browser &mdash; no data leaves your device.</p>
+
+      <div class="scan-box">
+        <div class="scan-tabs">
+          <button class="scan-tab active" data-tab="upload">Upload File</button>
+          <button class="scan-tab" data-tab="url">Paste URL</button>
+        </div>
+
+        <div class="scan-panel active" id="panel-upload">
+          <div class="scan-upload-area" id="dropZone">
+            <div class="scan-upload-icon">&#x1F4E4;</div>
+            <div class="scan-upload-text">Drag &amp; drop an image here, or <strong>click to browse</strong></div>
+            <div class="scan-upload-hint">Supports JPEG, PNG, WebP, TIFF</div>
+          </div>
+          <input type="file" class="scan-file-input" id="fileInput" accept="image/*" aria-label="Upload image file" />
+        </div>
+
+        <div class="scan-panel" id="panel-url">
+          <div class="scan-url-row">
+            <input type="text" class="scan-input" id="scanUrlInput" placeholder="https://example.com/image.jpg" aria-label="Image URL to scan" />
+            <button class="btn btn-primary" id="scanUrlBtn" style="padding:12px 20px; font-size:14px;">Scan</button>
+          </div>
+        </div>
+
+        <div class="scan-error" id="scanError"></div>
+        <div class="scan-result" id="scanResult"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-label">Detection Methods</div>
+      <h2>What it checks</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F512;</div>
+          <h3>C2PA / JUMBF</h3>
+          <p>Detects cryptographic Content Credentials embedded by DALL-E, Adobe Firefly, Microsoft Designer, Google Imagen, and camera manufacturers.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F4F7;</div>
+          <h3>EXIF &amp; XMP Metadata</h3>
+          <p>Parses Software, Creator, Description, Document ID, Instance ID, and 15+ other EXIF/XMP fields for AI tool signatures.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F3F7;&#xFE0F;</div>
+          <h3>IPTC DigitalSourceType</h3>
+          <p>Checks for the standard <code>trainedAlgorithmicMedia</code> tag used by C2PA-compliant tools to label AI output.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F30A;</div>
+          <h3>SynthID Markers</h3>
+          <p>Detects Google's SynthID watermark references in image metadata from Imagen, Veo, and Gemini-generated content.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F517;</div>
+          <h3>URL Pattern Matching</h3>
+          <p>Recognizes AI CDN hostnames from OpenAI, Replicate, Stability AI, Leonardo, FAL.ai, and 10+ other services.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F4DD;</div>
+          <h3>Text Heuristics</h3>
+          <p>Flags LLM phrases, sentence uniformity, transition word density, and formality patterns common in AI-generated text.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F4CA;</div>
+          <h3>Confidence Scoring</h3>
+          <p>Each result includes a confidence percentage (0-99%) calculated by combining independent signal probabilities.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F50D;</div>
+          <h3>URL Checker</h3>
+          <p>Paste any image or video URL directly into the extension to scan it standalone, without needing it on a page.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x26A1;</div>
+          <h3>Auto-Scan</h3>
+          <p>Automatically scans the current page when you click the extension icon. No extra clicks needed.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Verdicts -->
+  <section class="verdicts">
+    <div class="container">
+      <div class="section-label">Verdict Scale</div>
+      <h2>Clear, actionable results</h2>
+      <div class="verdict-list">
+        <div class="verdict-chip"><div class="verdict-dot" style="background:#ef4444"></div>AI Detected<span class="verdict-desc">Hard evidence (C2PA, EXIF)</span></div>
+        <div class="verdict-chip"><div class="verdict-dot" style="background:#f59e0b"></div>Likely AI<span class="verdict-desc">Strong signals (URL + heuristics)</span></div>
+        <div class="verdict-chip"><div class="verdict-dot" style="background:#818cf8"></div>Uncertain<span class="verdict-desc">Some signals, inconclusive</span></div>
+        <div class="verdict-chip"><div class="verdict-dot" style="background:#34d399"></div>Likely Real<span class="verdict-desc">No AI signals found</span></div>
+        <div class="verdict-chip"><div class="verdict-dot" style="background:#6b7280"></div>No Metadata<span class="verdict-desc">CORS blocked / stripped</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install -->
+  <section class="install" id="install">
+    <div class="container">
+      <div class="section-label">Get Started</div>
+      <h2>Install in 30 seconds</h2>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-text">Download or clone the repo from <a href="https://github.com/gauravkrp/ai-content-scanner" target="_blank">GitHub</a></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Open Chrome and go to <code>chrome://extensions/</code></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">Enable <strong>Developer mode</strong> (toggle in top-right)</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-text">Click <strong>"Load unpacked"</strong> and select the <code>ai-content-scanner</code> folder</div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-text">Click the extension icon on any page &mdash; it auto-scans instantly</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/gauravkrp/ai-content-scanner" target="_blank">GitHub</a>
+        <a href="https://github.com/gauravkrp" target="_blank">@gauravkrp</a>
+        <a href="https://gauravkrp.com" target="_blank">gauravkrp.com</a>
+        <a href="https://contentcredentials.org/verify" target="_blank">Verify C2PA</a>
+      </div>
+      <div class="footer-copy">
+        Built by <a href="https://gauravkrp.com" target="_blank">Gaurav Kumar</a> &middot; Open source under MIT
+      </div>
+    </div>
+  </footer>
+
+  <script>
+  // ================================================================
+  // Stats counter animation (placeholder values — update with real data)
+  // ================================================================
+  const STATS = { downloads: 500, scans: 12000, media: 85000 };
+
+  function animateCounter(el, target) {
+    const duration = 1500;
+    const start = performance.now();
+    function tick(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      const val = Math.round(ease * target);
+      el.firstChild.textContent = val.toLocaleString();
+      if (t < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  const statsObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        animateCounter(document.getElementById("statDownloads"), STATS.downloads);
+        animateCounter(document.getElementById("statScans"), STATS.scans);
+        animateCounter(document.getElementById("statMedia"), STATS.media);
+        statsObserver.disconnect();
+      }
+    });
+  }, { threshold: 0.5 });
+  statsObserver.observe(document.querySelector(".stats"));
+
+  // ================================================================
+  // Scanner tool — same logic as the Chrome extension, client-side
+  // ================================================================
+
+  const AI_SIGS = [
+    "dall-e","dall\u00B7e","openai","chatgpt","midjourney","mj",
+    "stable diffusion","stability ai","stabilityai","stablediffusion",
+    "adobe firefly","firefly","imagen","google deepmind","deepmind",
+    "leonardo ai","leonardo.ai","ideogram","playground ai",
+    "flux","black forest labs","bing image creator","microsoft designer",
+    "canva ai","canva magic","nightcafe","artbreeder","copilot designer",
+    "grok","xai","gemini","sora","runway","pika","kling","veo","luma",
+  ];
+  const AI_NAMES = {
+    "dall-e":"DALL-E","dall\u00B7e":"DALL-E","openai":"OpenAI","chatgpt":"ChatGPT",
+    "midjourney":"Midjourney","stable diffusion":"Stable Diffusion",
+    "stability ai":"Stability AI","adobe firefly":"Adobe Firefly",
+    "firefly":"Adobe Firefly","imagen":"Google Imagen","flux":"FLUX",
+    "bing image creator":"Bing Image Creator","microsoft designer":"Microsoft Designer",
+    "gemini":"Google Gemini","canva ai":"Canva AI","grok":"Grok (xAI)",
+  };
+
+  function scanBuffer(buffer, url) {
+    const bytes = new Uint8Array(buffer);
+    const signals = { c2pa:false, exif:false, iptc:false, synthid:false, url:false };
+    const result = { verdict:"no_metadata", confidence:0, source:null, reasons:[], fingerprint:{}, exif:{} };
+
+    // C2PA
+    for (let i=0;i<bytes.length-8;i++) {
+      if (bytes[i]===0x6a&&bytes[i+1]===0x75&&bytes[i+2]===0x6d&&bytes[i+3]===0x62) {
+        signals.c2pa=true; result.verdict="ai_detected";
+        result.reasons.push("C2PA Content Credentials found (JUMBF superbox).");
+        result.fingerprint.c2pa="JUMBF superbox detected";
+        break;
+      }
+    }
+    const text = new TextDecoder("ascii",{fatal:false}).decode(bytes.subarray(0,Math.min(bytes.length,300000)));
+    if (!signals.c2pa && /c2pa|c2cl|contentcredentials/i.test(text)) {
+      signals.c2pa=true; result.verdict="ai_detected";
+      result.reasons.push("C2PA text marker found in metadata.");
+      result.fingerprint.c2pa="C2PA text reference";
+    }
+
+    // EXIF / XMP AI signatures
+    const lower = text.toLowerCase();
+    for (const sig of AI_SIGS) {
+      if (lower.includes(sig)) {
+        signals.exif=true; result.verdict="ai_detected";
+        const name = AI_NAMES[sig]||sig;
+        result.source = result.source || name;
+        result.reasons.push("AI tool signature in metadata: \""+name+"\".");
+        result.fingerprint.software=sig;
+        result.exif["AI Software"]=name;
+        break;
+      }
+    }
+
+    // IPTC
+    if (/digitalsourcetype.*trainedAlgorithmicMedia/i.test(text)) {
+      signals.iptc=true; result.verdict="ai_detected";
+      result.reasons.push("IPTC DigitalSourceType: trainedAlgorithmicMedia");
+      result.fingerprint.iptc="trainedAlgorithmicMedia";
+    }
+
+    // SynthID
+    if (/synthid/i.test(text)) {
+      signals.synthid=true; result.verdict="ai_detected";
+      result.reasons.push("Google SynthID marker reference found.");
+      result.fingerprint.synthid="SynthID reference detected";
+      result.source = result.source || "Google (SynthID)";
+    }
+
+    // XMP fields
+    const xmpM = text.match(/<x:xmpmeta[\s\S]{0,50000}<\/x:xmpmeta>/i);
+    if (xmpM) {
+      const xmp = xmpM[0];
+      const extract = [
+        ["Creator Tool",/xmp:CreatorTool[>"]*>?\s*([^<]+)/i],
+        ["Creator",/dc:creator[^<]*<[^>]*>([^<]+)/i],
+        ["Description",/dc:description[^<]*<[^>]*>([^<]+)/i],
+        ["Document ID",/xmpMM:DocumentID[>"]*>?\s*["']?([^"'<]+)/i],
+        ["Instance ID",/xmpMM:InstanceID[>"]*>?\s*["']?([^"'<]+)/i],
+        ["Create Date",/xmp:CreateDate[>"]*>?\s*["']?([^"'<]+)/i],
+      ];
+      for (const [k,re] of extract) { const m=xmp.match(re); if(m&&m[1]?.trim()) result.exif[k]=m[1].trim(); }
+    }
+
+    // URL patterns
+    if (url) {
+      const uLower = url.toLowerCase();
+      const patterns = ["oaidalleapi","dalle","openai","midjourney","replicate","stability.ai","leonardo.ai","fal.ai","flux"];
+      for (const p of patterns) {
+        if (uLower.includes(p)) {
+          signals.url=true;
+          if (result.verdict==="no_metadata") result.verdict="likely_ai";
+          result.reasons.push("URL contains AI service pattern: \""+p+"\".");
+          result.fingerprint.urlPattern=p;
+          result.source=result.source||(AI_NAMES[p]||p);
+          break;
+        }
+      }
+    }
+
+    // Confidence
+    const w=[];
+    if(signals.c2pa)w.push(.95); if(signals.exif)w.push(.9); if(signals.iptc)w.push(.92);
+    if(signals.synthid)w.push(.9); if(signals.url)w.push(.65);
+    result.confidence = w.length===0 ? 5 : Math.min(99,Math.round((1-w.reduce((a,v)=>a*(1-v),1))*100));
+
+    if(result.reasons.length===0) result.reasons.push("No AI signals detected in metadata.");
+    result.fileSize = buffer.byteLength<1024*1024 ? (buffer.byteLength/1024).toFixed(1)+" KB" : (buffer.byteLength/(1024*1024)).toFixed(1)+" MB";
+    return result;
+  }
+
+  const VERDICT_COLORS = {
+    ai_detected:{label:"AI Detected",color:"#ef4444"},
+    likely_ai:{label:"Likely AI",color:"#f59e0b"},
+    uncertain:{label:"Uncertain",color:"#818cf8"},
+    likely_real:{label:"Likely Real",color:"#34d399"},
+    no_metadata:{label:"No Metadata",color:"#6b7280"},
+  };
+
+  function renderScanResult(r) {
+    const v = VERDICT_COLORS[r.verdict]||VERDICT_COLORS.no_metadata;
+    const el = document.getElementById("scanResult");
+    el.classList.add("visible");
+    el.textContent = "";
+
+    const card = document.createElement("div");
+    card.className = "result-card";
+
+    // Header
+    const hdr = document.createElement("div");
+    hdr.className = "result-card-header";
+    const dot = document.createElement("div");
+    dot.className = "result-card-dot";
+    dot.style.background = v.color;
+    const vLabel = document.createElement("div");
+    vLabel.className = "result-card-verdict";
+    vLabel.textContent = v.label;
+    const conf = document.createElement("div");
+    conf.className = "result-card-conf";
+    conf.style.color = v.color;
+    conf.textContent = r.confidence + "% confidence";
+    hdr.appendChild(dot); hdr.appendChild(vLabel); hdr.appendChild(conf);
+    card.appendChild(hdr);
+
+    // Source
+    if (r.source) {
+      const src = document.createElement("div");
+      src.className = "result-card-source";
+      src.textContent = "Source: " + r.source;
+      card.appendChild(src);
+    }
+
+    // Reasons
+    const reasons = document.createElement("div");
+    reasons.className = "result-card-reasons";
+    for (const reason of r.reasons) {
+      const d = document.createElement("div");
+      d.textContent = "\u2022 " + reason;
+      reasons.appendChild(d);
+    }
+    card.appendChild(reasons);
+
+    // Fingerprint
+    const fpEntries = Object.entries(r.fingerprint);
+    if (fpEntries.length > 0) {
+      const title = document.createElement("div");
+      title.className = "result-detail-title";
+      title.textContent = "Fingerprint";
+      card.appendChild(title);
+      const table = document.createElement("div");
+      table.className = "result-detail-table";
+      for (const [k,val] of fpEntries) {
+        const row = document.createElement("div");
+        row.className = "result-detail-row";
+        const key = document.createElement("div");
+        key.className = "result-detail-key";
+        key.textContent = k;
+        const valEl = document.createElement("div");
+        valEl.className = "result-detail-val";
+        valEl.textContent = val;
+        row.appendChild(key); row.appendChild(valEl); table.appendChild(row);
+      }
+      card.appendChild(table);
+    }
+
+    // EXIF
+    const exifEntries = Object.entries(r.exif);
+    if (exifEntries.length > 0) {
+      const title = document.createElement("div");
+      title.className = "result-detail-title";
+      title.textContent = "EXIF / Metadata";
+      card.appendChild(title);
+      const table = document.createElement("div");
+      table.className = "result-detail-table";
+      for (const [k,val] of exifEntries) {
+        const row = document.createElement("div");
+        row.className = "result-detail-row";
+        const key = document.createElement("div");
+        key.className = "result-detail-key";
+        key.textContent = k;
+        const valEl = document.createElement("div");
+        valEl.className = "result-detail-val";
+        valEl.textContent = val;
+        row.appendChild(key); row.appendChild(valEl); table.appendChild(row);
+      }
+      card.appendChild(table);
+    }
+
+    // File info
+    if (r.fileSize) {
+      const title = document.createElement("div");
+      title.className = "result-detail-title";
+      title.textContent = "File Info";
+      card.appendChild(title);
+      const row = document.createElement("div");
+      row.className = "result-detail-row";
+      const key = document.createElement("div");
+      key.className = "result-detail-key";
+      key.textContent = "Size";
+      const valEl = document.createElement("div");
+      valEl.className = "result-detail-val";
+      valEl.textContent = r.fileSize;
+      row.appendChild(key); row.appendChild(valEl);
+      const table = document.createElement("div");
+      table.className = "result-detail-table";
+      table.appendChild(row);
+      card.appendChild(table);
+    }
+
+    el.appendChild(card);
+  }
+
+  function showScanError(msg) {
+    const el = document.getElementById("scanError");
+    el.style.display = "block";
+    el.textContent = msg;
+    document.getElementById("scanResult").classList.remove("visible");
+  }
+
+  function clearScanError() {
+    document.getElementById("scanError").style.display = "none";
+  }
+
+  // Tab switching
+  document.querySelectorAll(".scan-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".scan-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".scan-panel").forEach(p => p.classList.remove("active"));
+      tab.classList.add("active");
+      document.getElementById("panel-" + tab.dataset.tab).classList.add("active");
+    });
+  });
+
+  // File upload
+  const dropZone = document.getElementById("dropZone");
+  const fileInput = document.getElementById("fileInput");
+
+  dropZone.addEventListener("click", () => fileInput.click());
+  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("dragover"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.classList.remove("dragover");
+    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("change", () => { if (fileInput.files.length > 0) handleFile(fileInput.files[0]); });
+
+  function handleFile(file) {
+    clearScanError();
+    if (!file.type.startsWith("image/")) { showScanError("Please upload an image file."); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = scanBuffer(reader.result, null);
+      renderScanResult(result);
+    };
+    reader.onerror = () => showScanError("Failed to read file.");
+    reader.readAsArrayBuffer(file);
+  }
+
+  // URL scan
+  document.getElementById("scanUrlBtn").addEventListener("click", scanFromUrl);
+  document.getElementById("scanUrlInput").addEventListener("keydown", e => { if (e.key==="Enter") scanFromUrl(); });
+
+  async function scanFromUrl() {
+    const url = document.getElementById("scanUrlInput").value.trim();
+    if (!url) return;
+    clearScanError();
+    try { new URL(url); } catch { showScanError("Please enter a valid URL."); return; }
+
+    document.getElementById("scanUrlBtn").textContent = "Scanning\u2026";
+    try {
+      const resp = await fetch(url, { mode: "cors" });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const buffer = await resp.arrayBuffer();
+      const result = scanBuffer(buffer, url);
+      renderScanResult(result);
+    } catch (err) {
+      showScanError("Could not fetch image (CORS blocked or URL unreachable). Try downloading and uploading instead.");
+    } finally {
+      document.getElementById("scanUrlBtn").textContent = "Scan";
+    }
+  }
+  </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 // ============================================================
 // AI Content Scanner — Background Service Worker
-// Handles CORS-bypassed image fetching and scan state
+// Handles CORS-bypassed image fetching, scan state, and auto-scan
 // ============================================================
 
 // Fetch images that content scripts can't access due to CORS
@@ -15,6 +15,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Forward scan results to popup
   if (msg.type === "SCAN_COMPLETE") {
     chrome.storage.session.set({ lastScan: msg.summary });
+  }
+
+  // Fetch arbitrary URL for SCAN_URL feature
+  if (msg.type === "SCAN_URL_FETCH" && msg.url) {
+    fetchAsBase64(msg.url)
+      .then((buffer) => sendResponse({ buffer }))
+      .catch(() => sendResponse({ buffer: null }));
+    return true;
   }
 });
 

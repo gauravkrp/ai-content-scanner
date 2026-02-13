@@ -29,43 +29,52 @@
     "haiper", "minimax", "hailuo",
   ];
 
+  // ── Normalized display names for AI tools ──
+  const AI_SOURCE_NAMES = {
+    "dall-e": "DALL-E", "dall·e": "DALL-E", "openai": "OpenAI", "chatgpt": "ChatGPT",
+    "midjourney": "Midjourney", "mj": "Midjourney",
+    "stable diffusion": "Stable Diffusion", "stability ai": "Stability AI",
+    "stabilityai": "Stability AI", "stablediffusion": "Stable Diffusion",
+    "adobe firefly": "Adobe Firefly", "firefly": "Adobe Firefly",
+    "imagen": "Google Imagen", "google deepmind": "Google DeepMind", "deepmind": "Google DeepMind",
+    "leonardo ai": "Leonardo AI", "leonardo.ai": "Leonardo AI",
+    "ideogram": "Ideogram", "playground ai": "Playground AI",
+    "flux": "FLUX (Black Forest Labs)", "black forest labs": "Black Forest Labs",
+    "bing image creator": "Bing Image Creator", "microsoft designer": "Microsoft Designer",
+    "canva ai": "Canva AI", "canva magic": "Canva Magic",
+    "nightcafe": "NightCafe", "artbreeder": "Artbreeder",
+    "copilot designer": "Copilot Designer",
+    "grok": "Grok (xAI)", "xai": "xAI",
+    "gemini": "Google Gemini",
+    "sora": "Sora (OpenAI)", "runway": "Runway", "runwayml": "Runway",
+    "pika": "Pika", "kling": "Kling", "veo": "Veo (Google)", "luma": "Luma Dream Machine",
+    "haiper": "Haiper", "minimax": "Minimax", "hailuo": "Hailuo AI",
+    // URL-based sources
+    "oaidalleapi": "DALL-E (OpenAI)", "dalle": "DALL-E",
+    "mj-gallery": "Midjourney",
+    "replicate.delivery": "Replicate", "replicate.com": "Replicate",
+    "pika.art": "Pika", "fal.ai": "FAL.ai", "together.xyz": "Together AI",
+  };
+
   // ── C2PA / JUMBF magic bytes ──
-  // C2PA embeds provenance in JUMBF boxes inside JPEG/PNG/WebP.
-  // JUMBF UUID for C2PA: 64(hex) in the jp2c box
-  const C2PA_JUMBF_MARKER = "c2pa"; // simplified text marker in binary
   const C2PA_MANIFEST_MARKER = new Uint8Array([
     0x6a, 0x75, 0x6d, 0x62, // "jumb"
   ]);
 
   // ── Result store ──
-  /** @type {Map<HTMLElement, ScanResult>} */
   const scannedElements = new Map();
-
-  /** @type {{ images: ScanResult[], videos: ScanResult[], text: ScanResult[] }} */
   let scanSummary = { images: [], videos: [], text: [] };
-
-  // ── Interfaces ──
-  /**
-   * @typedef {Object} ScanResult
-   * @property {HTMLElement} element
-   * @property {"image"|"video"|"text"} type
-   * @property {"ai_detected"|"likely_ai"|"uncertain"|"likely_real"|"no_metadata"} verdict
-   * @property {string[]} reasons
-   * @property {Record<string, string>} metadata
-   */
 
   // ====================================================================
   //  BINARY HELPERS
   // ====================================================================
 
-  /** Fetch an image as ArrayBuffer (same-origin or CORS) */
   async function fetchImageBytes(url) {
     try {
       const resp = await fetch(url, { mode: "cors", cache: "force-cache" });
       if (!resp.ok) return null;
       return await resp.arrayBuffer();
     } catch {
-      // CORS blocked — try via background script
       try {
         const resp = await chrome.runtime.sendMessage({
           type: "FETCH_IMAGE",
@@ -92,7 +101,6 @@
   //  EXIF / XMP / IPTC PARSER (lightweight)
   // ====================================================================
 
-  /** Extract ASCII strings from binary that match AI tool names */
   function extractAsciiStrings(buffer) {
     const bytes = new Uint8Array(buffer);
     const strings = [];
@@ -111,12 +119,11 @@
     return strings;
   }
 
-  /** Check binary for known C2PA / JUMBF markers */
-  function hasC2PAMarkers(buffer) {
+  function detectC2PA(buffer) {
     const bytes = new Uint8Array(buffer);
     const len = bytes.length;
+    const info = { found: false, signer: null, claimGenerator: null };
 
-    // Search for "jumb" box type (JUMBF superbox)
     for (let i = 0; i < len - 8; i++) {
       if (
         bytes[i] === 0x6a &&
@@ -124,30 +131,41 @@
         bytes[i + 2] === 0x6d &&
         bytes[i + 3] === 0x62
       ) {
-        return true;
+        info.found = true;
+        break;
       }
     }
 
-    // Search for "c2pa" or "c2cl" text markers in XMP/metadata
     const text = new TextDecoder("ascii", { fatal: false }).decode(
       bytes.subarray(0, Math.min(len, 200_000))
     );
     if (/c2pa|c2cl|contentcredentials|content.credentials/i.test(text)) {
-      return true;
+      info.found = true;
     }
 
-    return false;
+    if (info.found) {
+      const signerMatch = text.match(/claim_generator["\s:=]+([^"<\x00]{4,80})/i);
+      if (signerMatch) info.claimGenerator = signerMatch[1].trim();
+
+      const certMatch = text.match(/(?:signer|issuer|CN=)([^"<,\x00]{4,80})/i);
+      if (certMatch) info.signer = certMatch[1].trim();
+    }
+
+    return info;
   }
 
-  /** Parse EXIF APP1 to find Software / ImageDescription fields */
-  function parseExifSoftware(buffer) {
+  function parseMetadata(buffer) {
     const bytes = new Uint8Array(buffer);
-    const results = { software: "", description: "", artist: "", xmp: "" };
+    const result = {
+      software: "",
+      iptcDigitalSource: "",
+      aiSignature: "",
+      exifFields: {},
+    };
 
-    // Quick scan for EXIF marker (0xFFE1) in JPEG
+    // ── EXIF APP1 segment (JPEG) ──
     for (let i = 0; i < Math.min(bytes.length, 100); i++) {
       if (bytes[i] === 0xff && bytes[i + 1] === 0xe1) {
-        // Found APP1 — extract strings from this segment
         const segLen = (bytes[i + 2] << 8) | bytes[i + 3];
         const segment = buffer.slice(i + 4, i + 4 + segLen);
         const strings = extractAsciiStrings(segment);
@@ -155,15 +173,17 @@
 
         for (const sig of AI_SOFTWARE_SIGNATURES) {
           if (joined.toLowerCase().includes(sig)) {
-            results.software = sig;
+            result.aiSignature = sig;
             break;
           }
         }
+
+        extractExifTagsFromStrings(strings, result.exifFields);
         break;
       }
     }
 
-    // Also search XMP block (often starts with "<?xpacket" or "<x:xmpmeta")
+    // ── XMP block ──
     const fullText = new TextDecoder("ascii", { fatal: false }).decode(
       bytes.subarray(0, Math.min(bytes.length, 300_000))
     );
@@ -172,35 +192,138 @@
       /<x:xmpmeta[\s\S]{0,50000}<\/x:xmpmeta>/i
     );
     if (xmpMatch) {
-      results.xmp = xmpMatch[0];
-      const xmpLower = results.xmp.toLowerCase();
-      for (const sig of AI_SOFTWARE_SIGNATURES) {
-        if (xmpLower.includes(sig)) {
-          results.software = results.software || sig;
-          break;
+      const xmp = xmpMatch[0];
+      const xmpLower = xmp.toLowerCase();
+
+      if (!result.aiSignature) {
+        for (const sig of AI_SOFTWARE_SIGNATURES) {
+          if (xmpLower.includes(sig)) {
+            result.aiSignature = sig;
+            break;
+          }
         }
       }
-      // Check for DigitalSourceType (C2PA / IPTC standard for AI)
-      if (/digitalsourcetype.*trainedAlgorithmicMedia/i.test(results.xmp)) {
-        results.description = "IPTC:trainedAlgorithmicMedia";
+
+      if (/digitalsourcetype.*trainedAlgorithmicMedia/i.test(xmp)) {
+        result.iptcDigitalSource = "trainedAlgorithmicMedia";
       }
-      if (/digitalsourcetype.*compositeWithTrainedAlgorithmicMedia/i.test(results.xmp)) {
-        results.description = "IPTC:compositeWithTrainedAlgorithmicMedia";
+      if (/digitalsourcetype.*compositeWithTrainedAlgorithmicMedia/i.test(xmp)) {
+        result.iptcDigitalSource = "compositeWithTrainedAlgorithmicMedia";
       }
+
+      extractXmpFields(xmp, result.exifFields);
     }
 
-    // Broad text scan for AI signatures
-    if (!results.software) {
+    // ── Broad text scan for AI signatures ──
+    if (!result.aiSignature) {
       const lowerFull = fullText.toLowerCase();
       for (const sig of AI_SOFTWARE_SIGNATURES) {
         if (lowerFull.includes(sig)) {
-          results.software = sig;
+          result.aiSignature = sig;
           break;
         }
       }
     }
 
-    return results;
+    if (result.aiSignature) {
+      result.software = result.aiSignature;
+    }
+
+    return result;
+  }
+
+  function extractExifTagsFromStrings(strings, fields) {
+    for (let i = 0; i < strings.length; i++) {
+      const s = strings[i];
+      const lower = s.toLowerCase();
+
+      if (lower.includes("adobe") || lower.includes("photoshop") ||
+          lower.includes("gimp") || lower.includes("lightroom")) {
+        fields["Software"] = fields["Software"] || s.trim();
+      }
+
+      const dateMatch = s.match(/(\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2})/);
+      if (dateMatch && !fields["DateTime"]) {
+        fields["DateTime"] = dateMatch[1];
+      }
+
+      if (i > 0 && strings[i - 1]?.toLowerCase()?.includes("model")) {
+        fields["Camera Model"] = fields["Camera Model"] || s.trim();
+      }
+    }
+  }
+
+  function extractXmpFields(xmp, fields) {
+    const extractors = [
+      { key: "Creator Tool", regex: /xmp:CreatorTool[>"]*>?\s*([^<]+)/i },
+      { key: "Creator", regex: /dc:creator[^<]*<[^>]*>([^<]+)/i },
+      { key: "Description", regex: /dc:description[^<]*<[^>]*>([^<]+)/i },
+      { key: "Rights", regex: /dc:rights[^<]*<[^>]*>([^<]+)/i },
+      { key: "Title", regex: /dc:title[^<]*<[^>]*>([^<]+)/i },
+      { key: "Credit", regex: /photoshop:Credit[>"]*>?\s*([^<]+)/i },
+      { key: "Document ID", regex: /xmpMM:DocumentID[>"]*>?\s*["']?([^"'<]+)/i },
+      { key: "Instance ID", regex: /xmpMM:InstanceID[>"]*>?\s*["']?([^"'<]+)/i },
+      { key: "Original Document ID", regex: /xmpMM:OriginalDocumentID[>"]*>?\s*["']?([^"'<]+)/i },
+      { key: "XMP Toolkit", regex: /x:xmptk[="]*["=]\s*["']?([^"'<>]+)/i },
+      { key: "Digital Source Type", regex: /DigitalSourceType[>"]*>?\s*["']?([^"'<]+)/i },
+      { key: "Create Date", regex: /xmp:CreateDate[>"]*>?\s*["']?([^"'<]+)/i },
+      { key: "Modify Date", regex: /xmp:ModifyDate[>"]*>?\s*["']?([^"'<]+)/i },
+      { key: "Format", regex: /dc:format[>"]*>?\s*([^<]+)/i },
+      { key: "Color Space", regex: /exif:ColorSpace[>"]*>?\s*([^<]+)/i },
+      { key: "Pixel X Dimension", regex: /exif:PixelXDimension[>"]*>?\s*([^<]+)/i },
+      { key: "Pixel Y Dimension", regex: /exif:PixelYDimension[>"]*>?\s*([^<]+)/i },
+    ];
+
+    for (const { key, regex } of extractors) {
+      const m = xmp.match(regex);
+      if (m && m[1]?.trim()) {
+        fields[key] = m[1].trim();
+      }
+    }
+
+    const aboutMatch = xmp.match(/rdf:about\s*=\s*["']([^"']+)/i);
+    if (aboutMatch && aboutMatch[1]) {
+      fields["RDF About"] = aboutMatch[1];
+    }
+  }
+
+  // ====================================================================
+  //  CONFIDENCE CALCULATION
+  // ====================================================================
+
+  function calculateImageConfidence(signals) {
+    const weights = [];
+    if (signals.c2pa) weights.push(0.95);
+    if (signals.exifSignature) weights.push(0.90);
+    if (signals.iptc) weights.push(0.92);
+    if (signals.synthid) weights.push(0.90);
+    if (signals.urlPattern) weights.push(0.65);
+    if (signals.altText) weights.push(0.55);
+
+    if (weights.length === 0) return 5;
+    const combined = 1 - weights.reduce((acc, w) => acc * (1 - w), 1);
+    return Math.min(99, Math.round(combined * 100));
+  }
+
+  function calculateVideoConfidence(signals) {
+    const weights = [];
+    if (signals.urlPattern) weights.push(0.60);
+    if (signals.contextMention) weights.push(0.50);
+    if (weights.length === 0) return 5;
+    const combined = 1 - weights.reduce((acc, w) => acc * (1 - w), 1);
+    return Math.min(99, Math.round(combined * 100));
+  }
+
+  function calculateTextConfidence(score) {
+    if (score >= 70) return 90;
+    if (score >= 50) return 65 + Math.round((score - 50) * 1.25);
+    if (score >= 30) return 40 + Math.round((score - 30) * 1.25);
+    return Math.max(5, Math.round(score * 1.3));
+  }
+
+  function getSourceName(signature) {
+    if (!signature) return null;
+    return AI_SOURCE_NAMES[signature.toLowerCase()] || signature;
   }
 
   // ====================================================================
@@ -212,58 +335,85 @@
     if (!src || src.startsWith("data:") || src.startsWith("blob:")) {
       return null;
     }
-
-    // Skip tiny images (icons, tracking pixels, etc.)
     if (img.naturalWidth < 80 || img.naturalHeight < 80) return null;
 
-    /** @type {ScanResult} */
+    return await scanImageUrl(src, img);
+  }
+
+  async function scanImageUrl(src, imgElement) {
+    const signals = { c2pa: false, exifSignature: false, iptc: false, synthid: false, urlPattern: false, altText: false };
+
     const result = {
-      element: img,
+      element: imgElement || null,
       type: "image",
       verdict: "no_metadata",
+      confidence: 0,
+      source: null,
       reasons: [],
       metadata: { src },
+      fingerprint: {},
+      exif: {},
     };
 
     const buffer = await fetchImageBytes(src);
     if (!buffer) {
+      result.confidence = 0;
       result.reasons.push("Could not fetch image data (CORS blocked).");
       return result;
     }
 
-    // 1) Check for C2PA / JUMBF
-    if (hasC2PAMarkers(buffer)) {
+    result.metadata.fileSize = formatBytes(buffer.byteLength);
+
+    // 1) C2PA / JUMBF
+    const c2pa = detectC2PA(buffer);
+    if (c2pa.found) {
+      signals.c2pa = true;
       result.verdict = "ai_detected";
       result.reasons.push("C2PA Content Credentials found — provenance metadata embedded by an AI tool.");
-      result.metadata.c2pa = "present";
+      result.fingerprint.c2pa = "JUMBF superbox detected";
+      if (c2pa.claimGenerator) {
+        result.fingerprint.claimGenerator = c2pa.claimGenerator;
+        result.source = result.source || c2pa.claimGenerator;
+      }
+      if (c2pa.signer) {
+        result.fingerprint.signer = c2pa.signer;
+      }
     }
 
-    // 2) Check EXIF / XMP for AI tool signatures
-    const exif = parseExifSoftware(buffer);
-    if (exif.software) {
+    // 2) EXIF / XMP + metadata extraction
+    const meta = parseMetadata(buffer);
+    result.exif = { ...meta.exifFields };
+
+    if (meta.software) {
+      signals.exifSignature = true;
       result.verdict = "ai_detected";
-      result.reasons.push(
-        `AI tool signature found in metadata: "${exif.software}".`
-      );
-      result.metadata.software = exif.software;
-    }
-    if (exif.description) {
-      result.verdict = "ai_detected";
-      result.reasons.push(`IPTC DigitalSourceType: ${exif.description}`);
-      result.metadata.iptc = exif.description;
+      const displayName = getSourceName(meta.software);
+      result.reasons.push("AI tool signature in metadata: \"" + escapeHtml(displayName) + "\".");
+      result.fingerprint.software = meta.software;
+      result.source = result.source || displayName;
+      result.exif["AI Software"] = displayName;
     }
 
-    // 3) Check for SynthID text marker (Google embeds "synthid" references in some metadata)
+    if (meta.iptcDigitalSource) {
+      signals.iptc = true;
+      result.verdict = "ai_detected";
+      result.reasons.push("IPTC DigitalSourceType: " + escapeHtml(meta.iptcDigitalSource));
+      result.fingerprint.iptcDigitalSource = meta.iptcDigitalSource;
+    }
+
+    // 3) SynthID
     const textScan = new TextDecoder("ascii", { fatal: false }).decode(
       new Uint8Array(buffer).subarray(0, Math.min(buffer.byteLength, 200_000))
     );
     if (/synthid/i.test(textScan)) {
+      signals.synthid = true;
       result.verdict = "ai_detected";
       result.reasons.push("Google SynthID marker reference found in metadata.");
-      result.metadata.synthid = "present";
+      result.fingerprint.synthid = "SynthID reference detected";
+      result.source = result.source || "Google (SynthID)";
     }
 
-    // 4) Check for common AI hosting patterns in URL
+    // 4) URL patterns
     const urlLower = src.toLowerCase();
     const aiHostPatterns = [
       "oaidalleapi", "dalle", "openai",
@@ -275,28 +425,34 @@
     ];
     for (const pattern of aiHostPatterns) {
       if (urlLower.includes(pattern)) {
+        signals.urlPattern = true;
         if (result.verdict === "no_metadata") result.verdict = "likely_ai";
-        result.reasons.push(`Image URL contains AI service pattern: "${pattern}".`);
-        result.metadata.urlPattern = pattern;
+        result.reasons.push("Image URL contains AI service pattern: \"" + escapeHtml(pattern) + "\".");
+        result.fingerprint.urlPattern = pattern;
+        result.source = result.source || getSourceName(pattern);
         break;
       }
     }
 
-    // 5) Check alt text / title for AI mentions
-    const altText = (img.alt + " " + img.title).toLowerCase();
-    const aiAltPatterns = [
-      "ai generated", "ai-generated", "generated by ai",
-      "made with ai", "created with ai", "dall-e", "midjourney",
-      "stable diffusion", "ai image", "ai art",
-    ];
-    for (const pattern of aiAltPatterns) {
-      if (altText.includes(pattern)) {
-        if (result.verdict === "no_metadata") result.verdict = "likely_ai";
-        result.reasons.push(`Alt/title text mentions AI: "${pattern}".`);
-        break;
+    // 5) Alt text (DOM elements only)
+    if (imgElement) {
+      const altText = ((imgElement.alt || "") + " " + (imgElement.title || "")).toLowerCase();
+      const aiAltPatterns = [
+        "ai generated", "ai-generated", "generated by ai",
+        "made with ai", "created with ai", "dall-e", "midjourney",
+        "stable diffusion", "ai image", "ai art",
+      ];
+      for (const pattern of aiAltPatterns) {
+        if (altText.includes(pattern)) {
+          signals.altText = true;
+          if (result.verdict === "no_metadata") result.verdict = "likely_ai";
+          result.reasons.push("Alt/title text mentions AI: \"" + escapeHtml(pattern) + "\".");
+          break;
+        }
       }
     }
 
+    result.confidence = calculateImageConfidence(signals);
     return result;
   }
 
@@ -308,17 +464,20 @@
     const src = video.currentSrc || video.src;
     const sourceEl = video.querySelector("source");
     const videoSrc = src || sourceEl?.src;
+    const signals = { urlPattern: false, contextMention: false };
 
-    /** @type {ScanResult} */
     const result = {
       element: video,
       type: "video",
       verdict: "no_metadata",
+      confidence: 0,
+      source: null,
       reasons: [],
       metadata: { src: videoSrc || "unknown" },
+      fingerprint: {},
+      exif: {},
     };
 
-    // Check URL patterns for known AI video generators
     const urlLower = (videoSrc || "").toLowerCase();
     const aiVideoPatterns = [
       "sora", "runway", "runwayml", "pika.art", "pika",
@@ -327,14 +486,15 @@
     ];
     for (const pattern of aiVideoPatterns) {
       if (urlLower.includes(pattern)) {
+        signals.urlPattern = true;
         result.verdict = "likely_ai";
-        result.reasons.push(`Video URL matches AI video tool: "${pattern}".`);
-        result.metadata.urlPattern = pattern;
+        result.reasons.push("Video URL matches AI video tool: \"" + escapeHtml(pattern) + "\".");
+        result.fingerprint.urlPattern = pattern;
+        result.source = getSourceName(pattern);
         break;
       }
     }
 
-    // Check surrounding context
     const parent = video.closest("figure, div, article, section");
     if (parent) {
       const parentText = parent.textContent?.toLowerCase() || "";
@@ -344,65 +504,42 @@
       ];
       for (const mention of aiMentions) {
         if (parentText.includes(mention)) {
+          signals.contextMention = true;
           if (result.verdict === "no_metadata") result.verdict = "likely_ai";
-          result.reasons.push(`Surrounding text mentions: "${mention}".`);
+          result.reasons.push("Surrounding text mentions: \"" + escapeHtml(mention) + "\".");
+          result.source = result.source || getSourceName(mention);
           break;
         }
       }
     }
 
+    result.confidence = calculateVideoConfidence(signals);
     return result;
   }
 
   // ====================================================================
-  //  TEXT SCANNING (heuristic — statistical patterns)
+  //  TEXT SCANNING (heuristic)
   // ====================================================================
 
-  /**
-   * Lightweight AI text detection heuristics.
-   * NOT a replacement for a proper classifier — flags suspicious patterns.
-   */
   function scanTextBlock(text) {
-    if (text.length < 300) return null; // too short to analyze
+    if (text.length < 300) return null;
 
     const signals = [];
     let score = 0;
 
-    // 1) Overuse of hedging / filler phrases common in LLM output
     const llmPhrases = [
-      "it's worth noting that",
-      "it's important to note",
-      "it is worth mentioning",
-      "in today's world",
-      "in the rapidly evolving",
-      "dive into", "dive deep",
-      "let's delve",
-      "delve into",
-      "the landscape of",
-      "navigating the",
-      "harness the power",
-      "leverage the",
-      "at the end of the day",
-      "in conclusion,",
-      "to summarize,",
-      "overall,",
-      "in summary,",
-      "furthermore,",
-      "moreover,",
-      "additionally,",
-      "it's crucial to",
-      "plays a crucial role",
-      "a testament to",
-      "tapestry of",
-      "multifaceted",
-      "comprehensive guide",
-      "step-by-step guide",
-      "unlock the",
-      "game-changer",
-      "paradigm shift",
-      "holistic approach",
-      "foster a sense of",
-      "embark on",
+      "it's worth noting that", "it's important to note", "it is worth mentioning",
+      "in today's world", "in the rapidly evolving",
+      "dive into", "dive deep", "let's delve", "delve into",
+      "the landscape of", "navigating the",
+      "harness the power", "leverage the",
+      "at the end of the day", "in conclusion,", "to summarize,",
+      "overall,", "in summary,", "furthermore,", "moreover,", "additionally,",
+      "it's crucial to", "plays a crucial role",
+      "a testament to", "tapestry of", "multifaceted",
+      "comprehensive guide", "step-by-step guide",
+      "unlock the", "game-changer", "paradigm shift",
+      "holistic approach", "foster a sense of", "embark on",
     ];
 
     const lowerText = text.toLowerCase();
@@ -418,46 +555,41 @@
 
     if (phraseHits >= 3) {
       score += 25;
-      signals.push(`Contains ${phraseHits} common LLM phrases (${hitPhrases.slice(0, 3).join(", ")}…)`);
+      signals.push("Contains " + phraseHits + " common LLM phrases (" + hitPhrases.slice(0, 3).join(", ") + "...)");
     } else if (phraseHits >= 1) {
       score += 10;
     }
 
-    // 2) Sentence length uniformity (LLMs tend toward consistent length)
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
     if (sentences.length >= 5) {
       const lengths = sentences.map((s) => s.trim().split(/\s+/).length);
       const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
-      const variance =
-        lengths.reduce((a, b) => a + (b - avg) ** 2, 0) / lengths.length;
-      const cv = Math.sqrt(variance) / avg; // coefficient of variation
+      const variance = lengths.reduce((a, b) => a + (b - avg) ** 2, 0) / lengths.length;
+      const cv = Math.sqrt(variance) / avg;
 
       if (cv < 0.25 && avg > 12) {
         score += 20;
         signals.push(
-          `Very uniform sentence length (CV=${cv.toFixed(2)}, avg ${avg.toFixed(0)} words) — typical of LLM output.`
+          "Very uniform sentence length (CV=" + cv.toFixed(2) + ", avg " + avg.toFixed(0) + " words) — typical of LLM output."
         );
       }
     }
 
-    // 3) Paragraph structure uniformity
     const paragraphs = text.split(/\n\s*\n/).filter((p) => p.trim().length > 50);
     if (paragraphs.length >= 3) {
       const pLens = paragraphs.map((p) => p.length);
       const pAvg = pLens.reduce((a, b) => a + b, 0) / pLens.length;
-      const pVariance =
-        pLens.reduce((a, b) => a + (b - pAvg) ** 2, 0) / pLens.length;
+      const pVariance = pLens.reduce((a, b) => a + (b - pAvg) ** 2, 0) / pLens.length;
       const pCv = Math.sqrt(pVariance) / pAvg;
 
       if (pCv < 0.3) {
         score += 15;
         signals.push(
-          `Very uniform paragraph lengths (CV=${pCv.toFixed(2)}) — may indicate AI generation.`
+          "Very uniform paragraph lengths (CV=" + pCv.toFixed(2) + ") — may indicate AI generation."
         );
       }
     }
 
-    // 4) Excessive use of transitional words
     const transitions = (
       lowerText.match(
         /\b(however|therefore|furthermore|moreover|additionally|consequently|nevertheless|nonetheless|in addition|as a result|on the other hand)\b/g
@@ -469,11 +601,10 @@
     if (transitionDensity > 0.015 && transitions >= 4) {
       score += 15;
       signals.push(
-        `High transition word density (${transitions} in ${wordCount} words) — common in AI text.`
+        "High transition word density (" + transitions + " in " + wordCount + " words) — common in AI text."
       );
     }
 
-    // 5) Emoji-free, perfectly punctuated long-form (combined signal)
     const hasEmojis = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}]/u.test(text);
     const hasSlang = /\b(lol|lmao|tbh|imo|idk|gonna|wanna|gotta|ya'll|y'all|ngl|fr|bruh)\b/i.test(text);
 
@@ -482,23 +613,88 @@
       signals.push("Formal tone with no colloquialisms in long-form text.");
     }
 
-    // Determine verdict
     let verdict = "likely_real";
     if (score >= 50) verdict = "likely_ai";
     else if (score >= 30) verdict = "uncertain";
 
     if (verdict === "likely_real" && signals.length === 0) return null;
 
+    const confidence = calculateTextConfidence(score);
+
     return {
       type: "text",
       verdict,
+      confidence,
+      source: verdict !== "likely_real" ? "LLM (heuristic)" : null,
       score,
       reasons: signals.length > 0 ? signals : ["No strong AI signals detected."],
       metadata: {
         wordCount: String(wordCount),
         sentenceCount: String(sentences.length),
       },
+      fingerprint: {
+        method: "Statistical heuristics",
+        heuristicScore: score + "/85",
+      },
+      exif: {},
     };
+  }
+
+  // ====================================================================
+  //  URL SCANNING (standalone)
+  // ====================================================================
+
+  async function scanUrl(url) {
+    const urlLower = url.toLowerCase();
+    const isVideo = /\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(urlLower);
+
+    if (isVideo) {
+      const signals = { urlPattern: false, contextMention: false };
+      const result = {
+        type: "video",
+        verdict: "no_metadata",
+        confidence: 0,
+        source: null,
+        reasons: [],
+        metadata: { src: url },
+        fingerprint: {},
+        exif: {},
+      };
+
+      const aiVideoPatterns = [
+        "sora", "runway", "runwayml", "pika.art", "pika",
+        "kling", "luma", "haiper", "minimax", "hailuo",
+        "replicate", "fal.ai",
+      ];
+      for (const pattern of aiVideoPatterns) {
+        if (urlLower.includes(pattern)) {
+          signals.urlPattern = true;
+          result.verdict = "likely_ai";
+          result.reasons.push("Video URL matches AI video tool: \"" + escapeHtml(pattern) + "\".");
+          result.fingerprint.urlPattern = pattern;
+          result.source = getSourceName(pattern);
+          break;
+        }
+      }
+
+      result.confidence = calculateVideoConfidence(signals);
+      if (result.reasons.length === 0) {
+        result.reasons.push("No AI signals detected from URL analysis.");
+      }
+      return result;
+    }
+
+    return await scanImageUrl(url, null);
+  }
+
+  // ====================================================================
+  //  HELPERS
+  // ====================================================================
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   }
 
   // ====================================================================
@@ -519,30 +715,95 @@
 
     const { bg, label } = colors[result.verdict] || colors.no_metadata;
 
-    badge.innerHTML = `
-      <div class="acs-badge-dot" style="background:${bg}"></div>
-      <span class="acs-badge-label">${label}</span>
-    `;
+    // Build badge content safely
+    const dot = document.createElement("div");
+    dot.className = "acs-badge-dot";
+    dot.style.background = bg;
+
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "acs-badge-label";
+    labelSpan.textContent = label;
+
+    const confSpan = document.createElement("span");
+    confSpan.className = "acs-badge-confidence";
+    confSpan.style.color = bg;
+    confSpan.textContent = result.confidence + "%";
+
+    badge.appendChild(dot);
+    badge.appendChild(labelSpan);
+    badge.appendChild(confSpan);
 
     // Tooltip
     const tooltip = document.createElement("div");
     tooltip.className = "acs-tooltip";
-    tooltip.innerHTML = `
-      <div class="acs-tooltip-header">${label}</div>
-      <ul class="acs-tooltip-reasons">
-        ${result.reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}
-      </ul>
-      ${
-        Object.keys(result.metadata).length > 0
-          ? `<div class="acs-tooltip-meta">
-              ${Object.entries(result.metadata)
-                .filter(([k]) => k !== "src")
-                .map(([k, v]) => `<span><b>${k}:</b> ${escapeHtml(String(v).slice(0, 60))}</span>`)
-                .join("")}
-            </div>`
-          : ""
+
+    const header = document.createElement("div");
+    header.className = "acs-tooltip-header";
+    header.textContent = label + " \u00B7 " + result.confidence + "% confidence";
+    tooltip.appendChild(header);
+
+    if (result.source) {
+      const sourceDiv = document.createElement("div");
+      sourceDiv.className = "acs-tooltip-source";
+      sourceDiv.textContent = "Source: ";
+      const sourceB = document.createElement("b");
+      sourceB.textContent = result.source;
+      sourceDiv.appendChild(sourceB);
+      tooltip.appendChild(sourceDiv);
+    }
+
+    const reasonsUl = document.createElement("ul");
+    reasonsUl.className = "acs-tooltip-reasons";
+    for (const r of result.reasons) {
+      const li = document.createElement("li");
+      li.textContent = r;
+      reasonsUl.appendChild(li);
+    }
+    tooltip.appendChild(reasonsUl);
+
+    const fpEntries = Object.entries(result.fingerprint || {});
+    if (fpEntries.length > 0) {
+      const fpSection = document.createElement("div");
+      fpSection.className = "acs-tooltip-section";
+      const fpTitle = document.createElement("div");
+      fpTitle.className = "acs-tooltip-section-title";
+      fpTitle.textContent = "Fingerprint";
+      fpSection.appendChild(fpTitle);
+      for (const [k, v] of fpEntries) {
+        const span = document.createElement("span");
+        const b = document.createElement("b");
+        b.textContent = k + ": ";
+        span.appendChild(b);
+        span.appendChild(document.createTextNode(String(v).slice(0, 80)));
+        fpSection.appendChild(span);
       }
-    `;
+      tooltip.appendChild(fpSection);
+    }
+
+    const exifEntries = Object.entries(result.exif || {});
+    if (exifEntries.length > 0) {
+      const exifSection = document.createElement("div");
+      exifSection.className = "acs-tooltip-section";
+      const exifTitle = document.createElement("div");
+      exifTitle.className = "acs-tooltip-section-title";
+      exifTitle.textContent = "Metadata";
+      exifSection.appendChild(exifTitle);
+      for (const [k, v] of exifEntries.slice(0, 6)) {
+        const span = document.createElement("span");
+        const b = document.createElement("b");
+        b.textContent = k + ": ";
+        span.appendChild(b);
+        span.appendChild(document.createTextNode(String(v).slice(0, 60)));
+        exifSection.appendChild(span);
+      }
+      if (exifEntries.length > 6) {
+        const more = document.createElement("span");
+        more.className = "acs-tooltip-more";
+        more.textContent = "+" + (exifEntries.length - 6) + " more fields";
+        exifSection.appendChild(more);
+      }
+      tooltip.appendChild(exifSection);
+    }
 
     badge.appendChild(tooltip);
 
@@ -557,7 +818,6 @@
   }
 
   function attachBadgeToElement(element, result) {
-    // Ensure parent is positioned
     const parent = element.parentElement;
     if (parent && getComputedStyle(parent).position === "static") {
       parent.style.position = "relative";
@@ -567,13 +827,11 @@
     wrapper.className = "acs-badge-wrapper";
 
     if (result.type === "text") {
-      // For text, add a subtle left-border highlight
       element.classList.add("acs-text-highlight");
-      const verdictClass = `acs-text-${result.verdict.replace(/_/g, "-")}`;
+      const verdictClass = "acs-text-" + result.verdict.replace(/_/g, "-");
       element.classList.add(verdictClass);
       element.prepend(createBadge(result));
     } else {
-      // For images/videos, position overlay
       if (parent) {
         wrapper.appendChild(createBadge(result));
         parent.appendChild(wrapper);
@@ -592,7 +850,6 @@
   // ====================================================================
 
   async function scanPage() {
-    // Clear previous
     document.querySelectorAll(".acs-badge-wrapper, .acs-badge").forEach((el) => el.remove());
     document.querySelectorAll(".acs-text-highlight").forEach((el) => {
       el.classList.remove(
@@ -605,7 +862,6 @@
 
     scanSummary = { images: [], videos: [], text: [] };
 
-    // ── Scan images ──
     const images = [...document.querySelectorAll("img")];
     const imagePromises = images.map(async (img) => {
       try {
@@ -622,7 +878,6 @@
       }
     });
 
-    // ── Scan videos ──
     const videos = [...document.querySelectorAll("video")];
     const videoPromises = videos.map(async (video) => {
       try {
@@ -639,24 +894,20 @@
       }
     });
 
-    // ── Scan text blocks ──
     const textContainers = [
       ...document.querySelectorAll("article, .post-content, .entry-content, .article-body, main p, .content p"),
     ];
 
-    // Fallback: grab large <p> blocks if no semantic containers found
     if (textContainers.length === 0) {
       const allP = [...document.querySelectorAll("p")];
       const bigP = allP.filter((p) => p.textContent.trim().length > 300);
       textContainers.push(...bigP);
     }
 
-    // Deduplicate (don't scan children of already-scanned containers)
     const seen = new Set();
     const uniqueContainers = textContainers.filter((el) => {
       if (seen.has(el)) return false;
       seen.add(el);
-      // Skip if ancestor already in set
       for (const s of seen) {
         if (s !== el && s.contains(el)) return false;
       }
@@ -678,7 +929,6 @@
 
     await Promise.allSettled([...imagePromises, ...videoPromises]);
 
-    // Notify popup with results
     chrome.runtime.sendMessage({
       type: "SCAN_COMPLETE",
       summary: {
@@ -691,7 +941,6 @@
     return scanSummary;
   }
 
-  /** Remove the DOM element ref before sending over message port */
   function stripElement(result) {
     const { element, ...rest } = result;
     return rest;
@@ -710,7 +959,7 @@
           text: summary.text.map(stripElement),
         });
       });
-      return true; // async
+      return true;
     }
 
     if (msg.type === "GET_RESULTS") {
@@ -719,6 +968,14 @@
         videos: scanSummary.videos.map(stripElement),
         text: scanSummary.text.map(stripElement),
       });
+    }
+
+    if (msg.type === "SCAN_URL") {
+      scanUrl(msg.url).then((result) => {
+        const { element, ...rest } = result;
+        sendResponse(rest);
+      });
+      return true;
     }
   });
 })();
