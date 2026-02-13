@@ -161,6 +161,16 @@
   font-style: italic;
 }
 
+/* Mobile: keep tooltip within narrow viewports (e.g. when badge is on a mobile page) */
+@media (max-width: 420px) {
+  .acs-tooltip {
+    min-width: 0;
+    max-width: calc(100vw - 24px);
+    left: 0;
+    right: auto;
+  }
+}
+
 /* Legacy meta (kept for compat) */
 .acs-tooltip-meta {
   margin-top: 8px;
