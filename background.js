@@ -45,19 +45,61 @@ async function fetchAsBase64(url) {
   }
 }
 
-// Set badge text when scan completes
-chrome.runtime.onMessage.addListener((msg) => {
+// Set badge text when scan completes (optionally for a specific tab)
+chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg.type === "SCAN_COMPLETE" && msg.summary) {
     const { images, videos, text } = msg.summary;
     const aiCount = [...images, ...videos, ...text].filter(
       (r) => r.verdict === "ai_detected" || r.verdict === "likely_ai"
     ).length;
 
+    const tabId = sender.tab?.id;
     if (aiCount > 0) {
-      chrome.action.setBadgeText({ text: String(aiCount) });
-      chrome.action.setBadgeBackgroundColor({ color: "#ef4444" });
+      if (tabId != null) {
+        chrome.action.setBadgeText({ tabId, text: String(aiCount) });
+        chrome.action.setBadgeBackgroundColor({ tabId, color: "#ef4444" });
+      } else {
+        chrome.action.setBadgeText({ text: String(aiCount) });
+        chrome.action.setBadgeBackgroundColor({ color: "#ef4444" });
+      }
     } else {
-      chrome.action.setBadgeText({ text: "" });
+      if (tabId != null) chrome.action.setBadgeText({ tabId, text: "" });
+      else chrome.action.setBadgeText({ text: "" });
     }
   }
+});
+
+// ── Auto-scan on tab change (optional, debounced) ──
+const AUTO_SCAN_DEBOUNCE_MS = 800;
+let autoScanTimeout = null;
+
+function isScannableUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  return url.startsWith("http:") || url.startsWith("https:");
+}
+
+async function triggerAutoScan(tabId) {
+  const { autoScanOnTabChange = true } = await chrome.storage.local.get("autoScanOnTabChange");
+  if (!autoScanOnTabChange) return;
+
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab?.url || !isScannableUrl(tab.url)) return;
+
+    await chrome.tabs.sendMessage(tabId, { type: "SCAN_PAGE" });
+  } catch {
+    // Content script not ready or restricted URL — ignore (e.g. chrome://, new tab)
+  }
+}
+
+function scheduleAutoScan(tabId) {
+  if (autoScanTimeout) clearTimeout(autoScanTimeout);
+  autoScanTimeout = setTimeout(() => {
+    autoScanTimeout = null;
+    triggerAutoScan(tabId);
+  }, AUTO_SCAN_DEBOUNCE_MS);
+}
+
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  scheduleAutoScan(activeInfo.tabId);
 });

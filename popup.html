@@ -458,6 +458,50 @@
 
     .footer a:hover { text-decoration: underline; }
 
+    /* ── Settings (auto-scan on tab change) ── */
+    .settings {
+      padding: 8px 18px 10px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .settings-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.35;
+    }
+    .settings-toggle {
+      flex-shrink: 0;
+      width: 32px;
+      height: 18px;
+      border-radius: 9px;
+      background: var(--border);
+      border: none;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s;
+    }
+    .settings-toggle[aria-pressed="true"] {
+      background: var(--accent);
+    }
+    .settings-toggle::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.2s;
+    }
+    .settings-toggle[aria-pressed="true"]::after {
+      transform: translateX(14px);
+    }
+
     /* ── Dot colors ── */
     .dot-red { background: var(--red); }
     .dot-amber { background: var(--amber); }
@@ -528,6 +572,12 @@
     <div class="empty-desc">
       Click "Scan Page" to analyze all images, videos, and text on this page for AI-generation fingerprints.
     </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="settings">
+    <label class="settings-label" for="autoScanToggle">Scan when I switch tabs</label>
+    <button type="button" id="autoScanToggle" class="settings-toggle" role="switch" aria-pressed="true" aria-label="Scan when I switch tabs"></button>
   </div>
 
   <!-- Footer -->

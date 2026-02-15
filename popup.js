@@ -14,6 +14,7 @@ const cleanCountEl = document.getElementById("cleanCount");
 const urlInput = document.getElementById("urlInput");
 const checkBtn = document.getElementById("checkBtn");
 const urlResultEl = document.getElementById("urlResult");
+const autoScanToggle = document.getElementById("autoScanToggle");
 
 const VERDICT_CONFIG = {
   ai_detected: { label: "AI Detected", dotClass: "dot-red", priority: 0, color: "#ef4444" },
@@ -22,6 +23,17 @@ const VERDICT_CONFIG = {
   likely_real: { label: "Likely Real", dotClass: "dot-green", priority: 3, color: "#34d399" },
   no_metadata: { label: "No Metadata", dotClass: "dot-gray", priority: 4, color: "#6b7280" },
 };
+
+// ── Auto-scan on tab change: load saved setting and bind toggle ──
+(async function initAutoScanSetting() {
+  const { autoScanOnTabChange = true } = await chrome.storage.local.get("autoScanOnTabChange");
+  autoScanToggle.setAttribute("aria-pressed", String(autoScanOnTabChange));
+  autoScanToggle.addEventListener("click", async () => {
+    const next = autoScanToggle.getAttribute("aria-pressed") !== "true";
+    autoScanToggle.setAttribute("aria-pressed", String(next));
+    await chrome.storage.local.set({ autoScanOnTabChange: next });
+  });
+})();
 
 // ── Auto-scan on popup open ──
 (async function autoScan() {
