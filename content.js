@@ -56,6 +56,20 @@
     "pika.art": "Pika", "fal.ai": "FAL.ai", "together.xyz": "Together AI",
   };
 
+  // ── C2PA claim_generator: camera/capture (not AI) vs AI tools ──
+  // C2PA is used by both cameras (provenance) and AI tools; we only flag AI.
+  const C2PA_CLAIM_CAMERA = [
+    "leica", "sony", "canon", "nikon", "om system", "fujifilm",
+    "iphone", "pixel", "content authenticity", "cai ", "phase one",
+    "capture one", "camera", "pentax", "panasonic", "lumix", "olympus",
+  ];
+  const C2PA_CLAIM_AI = [
+    "dall-e", "dall·e", "firefly", "midjourney", "openai", "stability",
+    "imagen", "leonardo", "ideogram", "flux", "microsoft designer",
+    "bing", "canva", "runway", "sora", "veo", "luma", "pika", "kling",
+    "gemini", "replicate", "fal.ai", "playground",
+  ];
+
   // ── C2PA / JUMBF magic bytes ──
   const C2PA_MANIFEST_MARKER = new Uint8Array([
     0x6a, 0x75, 0x6d, 0x62, // "jumb"
@@ -364,20 +378,35 @@
 
     result.metadata.fileSize = formatBytes(buffer.byteLength);
 
-    // 1) C2PA / JUMBF
+    // 1) C2PA / JUMBF — only flag as AI when claim_generator indicates an AI tool
+    // Cameras and phones also embed C2PA for provenance; we treat those as non-AI.
     const c2pa = detectC2PA(buffer);
     if (c2pa.found) {
-      signals.c2pa = true;
-      result.verdict = "ai_detected";
-      result.reasons.push("C2PA Content Credentials found — provenance metadata embedded by an AI tool.");
       result.fingerprint.c2pa = "JUMBF superbox detected";
       if (c2pa.claimGenerator) {
         result.fingerprint.claimGenerator = c2pa.claimGenerator;
-        result.source = result.source || c2pa.claimGenerator;
+        const genLower = c2pa.claimGenerator.toLowerCase();
+        const isCamera = C2PA_CLAIM_CAMERA.some((s) => genLower.includes(s));
+        const isAi = C2PA_CLAIM_AI.some((s) => genLower.includes(s));
+        if (isCamera) {
+          result.reasons.push("C2PA Content Credentials from capture device (camera/phone) — not AI-generated.");
+          result.verdict = "likely_real";
+          result.source = result.source || c2pa.claimGenerator;
+        } else if (isAi) {
+          signals.c2pa = true;
+          result.verdict = "ai_detected";
+          result.reasons.push("C2PA Content Credentials found — provenance from an AI tool.");
+          result.source = result.source || c2pa.claimGenerator;
+        } else {
+          result.reasons.push("C2PA Content Credentials present; source unknown (not classified as AI).");
+          result.verdict = "uncertain";
+          result.source = result.source || c2pa.claimGenerator;
+        }
+      } else {
+        result.reasons.push("C2PA Content Credentials present; no claim generator (not classified as AI).");
+        result.verdict = "uncertain";
       }
-      if (c2pa.signer) {
-        result.fingerprint.signer = c2pa.signer;
-      }
+      if (c2pa.signer) result.fingerprint.signer = c2pa.signer;
     }
 
     // 2) EXIF / XMP + metadata extraction

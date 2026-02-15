@@ -664,26 +664,48 @@
     "bing image creator":"Bing Image Creator","microsoft designer":"Microsoft Designer",
     "gemini":"Google Gemini","canva ai":"Canva AI","grok":"Grok (xAI)",
   };
+  // C2PA claim_generator: camera (not AI) vs AI — so we don't flag camera photos
+  const C2PA_CLAIM_CAMERA = ["leica","sony","canon","nikon","om system","fujifilm","iphone","pixel","content authenticity","cai ","phase one","capture one","camera","pentax","panasonic","lumix","olympus"];
+  const C2PA_CLAIM_AI = ["dall-e","dall·e","firefly","midjourney","openai","stability","imagen","leonardo","ideogram","flux","microsoft designer","bing","canva","runway","sora","veo","luma","pika","kling","gemini","replicate","fal.ai","playground"];
 
   function scanBuffer(buffer, url) {
     const bytes = new Uint8Array(buffer);
     const signals = { c2pa:false, exif:false, iptc:false, synthid:false, url:false };
     const result = { verdict:"no_metadata", confidence:0, source:null, reasons:[], fingerprint:{}, exif:{} };
 
-    // C2PA
-    for (let i=0;i<bytes.length-8;i++) {
-      if (bytes[i]===0x6a&&bytes[i+1]===0x75&&bytes[i+2]===0x6d&&bytes[i+3]===0x62) {
-        signals.c2pa=true; result.verdict="ai_detected";
-        result.reasons.push("C2PA Content Credentials found (JUMBF superbox).");
-        result.fingerprint.c2pa="JUMBF superbox detected";
-        break;
-      }
-    }
     const text = new TextDecoder("ascii",{fatal:false}).decode(bytes.subarray(0,Math.min(bytes.length,300000)));
-    if (!signals.c2pa && /c2pa|c2cl|contentcredentials/i.test(text)) {
-      signals.c2pa=true; result.verdict="ai_detected";
-      result.reasons.push("C2PA text marker found in metadata.");
-      result.fingerprint.c2pa="C2PA text reference";
+    let c2paFound = false;
+    for (let i=0;i<bytes.length-8;i++) {
+      if (bytes[i]===0x6a&&bytes[i+1]===0x75&&bytes[i+2]===0x6d&&bytes[i+3]===0x62) { c2paFound=true; break; }
+    }
+    if (!c2paFound && /c2pa|c2cl|contentcredentials/i.test(text)) c2paFound = true;
+    if (c2paFound) {
+      result.fingerprint.c2pa = "JUMBF superbox detected";
+      const genMatch = text.match(/claim_generator["\s:=]+([^"<\x00]{4,80})/i);
+      const claimGenerator = genMatch ? genMatch[1].trim() : null;
+      if (claimGenerator) {
+        result.fingerprint.claimGenerator = claimGenerator;
+        const g = claimGenerator.toLowerCase();
+        const isCamera = C2PA_CLAIM_CAMERA.some(s => g.includes(s));
+        const isAi = C2PA_CLAIM_AI.some(s => g.includes(s));
+        if (isCamera) {
+          result.reasons.push("C2PA from capture device (camera/phone) — not AI-generated.");
+          result.verdict = "likely_real";
+          result.source = result.source || claimGenerator;
+        } else if (isAi) {
+          signals.c2pa = true;
+          result.verdict = "ai_detected";
+          result.reasons.push("C2PA Content Credentials from an AI tool.");
+          result.source = result.source || claimGenerator;
+        } else {
+          result.reasons.push("C2PA present; source unknown (not classified as AI).");
+          result.verdict = "uncertain";
+          result.source = result.source || claimGenerator;
+        }
+      } else {
+        result.reasons.push("C2PA present; no claim generator (not classified as AI).");
+        result.verdict = "uncertain";
+      }
     }
 
     // EXIF / XMP AI signatures
