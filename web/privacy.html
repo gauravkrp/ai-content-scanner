@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — AI Content Scanner</title>
+  <meta name="description" content="Privacy policy for the AI Content Scanner Chrome extension and website. We do not collect or transmit personal data; all scanning runs locally." />
+  <meta name="theme-color" content="#3b82f6" />
+  <link rel="canonical" href="https://ai-content-scanner.vercel.app/privacy.html" />
+  <link rel="icon" href="icon.png" type="image/png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #09090b;
+      --bg-card: #141418;
+      --border: rgba(255,255,255,0.08);
+      --text: #f0f0f0;
+      --text-secondary: #8a8a8e;
+      --text-muted: #555;
+      --accent: #3b82f6;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); font-size: 12px; font-family: "SF Mono", Menlo, monospace; }
+
+    .container { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+    nav { padding: 20px 0; border-bottom: 1px solid var(--border); }
+    nav .container { display: flex; align-items: center; justify-content: space-between; }
+    .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--text); }
+    .nav-brand img { width: 32px; height: 32px; border-radius: 8px; }
+    .nav-links { display: flex; gap: 24px; font-size: 14px; }
+    .nav-links a { color: var(--text-secondary); }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    main { padding: 48px 0 60px; }
+    h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
+    .updated { font-size: 14px; color: var(--text-muted); margin-bottom: 32px; }
+    h2 { font-size: 18px; font-weight: 700; margin-top: 32px; margin-bottom: 12px; }
+    p { margin-bottom: 14px; color: var(--text-secondary); }
+    ul { margin: 0 0 14px 1.25em; color: var(--text-secondary); }
+    li { margin-bottom: 6px; }
+
+    footer { padding: 32px 0; border-top: 1px solid var(--border); text-align: center; }
+    .footer-links { display: flex; gap: 24px; justify-content: center; margin-bottom: 12px; font-size: 14px; }
+    .footer-links a { color: var(--text-secondary); }
+    .footer-links a:hover { color: var(--text); }
+    .footer-copy { font-size: 13px; color: var(--text-muted); }
+
+    @media (max-width: 600px) {
+      .container { padding: 0 16px; }
+      main { padding: 32px 0 48px; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="container">
+      <a href="index.html" class="nav-brand">
+        <img src="icon.png" alt="AI Content Scanner" />
+        AI Content Scanner
+      </a>
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="index.html#install">Install</a>
+        <a href="https://github.com/gauravkrp/ai-content-scanner" target="_blank">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: February 2025</p>
+
+      <p>AI Content Scanner (“we”, “the extension”, “the website”) is built with privacy in mind. This policy describes what data we use and what we do not do.</p>
+
+      <h2>Data usage disclosure (Chrome Web Store)</h2>
+      <p>In connection with the Chrome extension and related services, the following types of data may be involved. We disclose them here to align with store requirements:</p>
+      <ul>
+        <li><strong>Location (e.g. region, IP address):</strong> The extension does not collect or send location. If you use our public API (e.g. from the website when a URL scan is sent to our server), we may receive your IP address in server logs for rate limiting and abuse prevention only. We do not use it for tracking or advertising.</li>
+        <li><strong>Web history:</strong> We do not collect or store your browsing history. The extension runs on pages you visit when you choose to scan, but we do not record which sites you visit, page titles, or visit times. No history is sent to our servers.</li>
+        <li><strong>User activity (e.g. clicks, scroll):</strong> We do not monitor, log, or transmit your clicks, keystrokes, scroll, or other activity. The extension reacts to actions you take (e.g. opening the popup or clicking “Scan”) only to run a local scan; that activity is not collected or sent.</li>
+        <li><strong>Website content (e.g. text, images, links):</strong> When you scan a page, the extension reads images, videos, and text on that page to analyze metadata and patterns locally. This content is processed only in your browser and is not sent to our servers. If you paste an image or video URL into the extension or the website, that URL may be sent to our API only when the image cannot be fetched from your browser (e.g. CORS); we do not store or use that content for any purpose other than returning the scan result.</li>
+      </ul>
+
+      <h2>1. We do not collect personal data</h2>
+      <p>We do not collect, store, or transmit any personally identifiable information (e.g. name, email, address). We do not use analytics, tracking, or advertising. We do not sell or share any user data.</p>
+
+      <h2>2. Chrome extension — data stays on your device</h2>
+      <p>The extension runs entirely in your browser. When you scan a page or paste an image/video URL:</p>
+      <ul>
+        <li><strong>Scanning is local.</strong> Images, videos, and text on the page are analyzed in your browser to read metadata (e.g. C2PA, EXIF, XMP, IPTC). This data is not sent to our servers or any third party.</li>
+        <li><strong>Storage.</strong> We use Chrome’s storage only for: (1) your preference “Scan when I switch tabs” (on/off), stored locally; (2) the latest scan summary (e.g. counts) in session storage so the extension badge and popup can show results. Session storage is cleared when you close the browser. No page content, URLs, or browsing history are stored.</li>
+        <li><strong>Host permissions.</strong> The extension can access all URLs so it can fetch image and video files from websites to read their metadata (many sites block cross-origin requests). Only the binary data is fetched for local analysis; nothing is sent to us or anyone else.</li>
+      </ul>
+
+      <h2>3. This website — in-browser scanning</h2>
+      <p>If you use the “Try it now” tool on this site (upload a file or paste an image URL):</p>
+      <ul>
+        <li><strong>File uploads</strong> are processed entirely in your browser. The file never leaves your device.</li>
+        <li><strong>URL scans</strong> are first attempted in your browser. If the image cannot be fetched (e.g. CORS), the request may be sent to our API to fetch and analyze the image. The API does not log or store image content or URLs long-term.</li>
+      </ul>
+
+      <h2>4. Public API</h2>
+      <p>Our public API (<code>https://ai-content-scanner.vercel.app/api/scan</code> and <code>/api/analyze-text</code>) accepts image URLs or file uploads and text. Requests are processed to return AI-detection results. We may retain minimal server logs (e.g. IP, timestamp) for abuse prevention and rate limiting. We do not use API traffic for tracking or advertising.</p>
+
+      <h2>5. Contact</h2>
+      <p>For questions about this privacy policy or the extension, you can open an issue on <a href="https://github.com/gauravkrp/ai-content-scanner" target="_blank">GitHub</a> or contact <a href="https://gauravkrp.com" target="_blank">Gaurav Pandey</a>.</p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="https://github.com/gauravkrp/ai-content-scanner" target="_blank">GitHub</a>
+        <a href="https://gauravkrp.com" target="_blank">gauravkrp.com</a>
+      </div>
+      <div class="footer-copy">
+        Built by <a href="https://gauravkrp.com" target="_blank">Gaurav Pandey</a> &middot; Open source under MIT
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
