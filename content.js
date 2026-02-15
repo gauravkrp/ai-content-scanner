@@ -60,9 +60,10 @@
   // C2PA is used by both cameras (provenance) and AI tools; we only flag AI.
   const C2PA_CLAIM_CAMERA = [
     "leica", "sony", "canon", "nikon", "om system", "fujifilm",
-    "iphone", "pixel", "content authenticity", "cai ", "phase one",
-    "capture one", "camera", "pentax", "panasonic", "lumix", "olympus",
+    "iphone", "pixel", "phase one", "capture one", "camera",
+    "pentax", "panasonic", "lumix", "olympus",
   ];
+  // Note: "content authenticity" / "cai" omitted — AI tools can use CAI too; avoid false likely_real
   const C2PA_CLAIM_AI = [
     "dall-e", "dall·e", "firefly", "midjourney", "openai", "stability",
     "imagen", "leonardo", "ideogram", "flux", "microsoft designer",
@@ -136,7 +137,11 @@
   function detectC2PA(buffer) {
     const bytes = new Uint8Array(buffer);
     const len = bytes.length;
-    const info = { found: false, signer: null, claimGenerator: null };
+    const info = { found: false, signer: null, claimGenerator: null, decodedText: null };
+
+    const text = new TextDecoder("ascii", { fatal: false }).decode(
+      bytes.subarray(0, Math.min(len, 200_000))
+    );
 
     for (let i = 0; i < len - 8; i++) {
       if (
@@ -149,15 +154,12 @@
         break;
       }
     }
-
-    const text = new TextDecoder("ascii", { fatal: false }).decode(
-      bytes.subarray(0, Math.min(len, 200_000))
-    );
     if (/c2pa|c2cl|contentcredentials|content.credentials/i.test(text)) {
       info.found = true;
     }
 
     if (info.found) {
+      info.decodedText = text;
       const signerMatch = text.match(/claim_generator["\s:=]+([^"<\x00]{4,80})/i);
       if (signerMatch) info.claimGenerator = signerMatch[1].trim();
 
@@ -383,6 +385,7 @@
     const c2pa = detectC2PA(buffer);
     if (c2pa.found) {
       result.fingerprint.c2pa = "JUMBF superbox detected";
+      let c2paClassified = false;
       if (c2pa.claimGenerator) {
         result.fingerprint.claimGenerator = c2pa.claimGenerator;
         const genLower = c2pa.claimGenerator.toLowerCase();
@@ -393,18 +396,35 @@
           result.verdict = "ai_detected";
           result.reasons.push("C2PA Content Credentials found — provenance from an AI tool.");
           result.source = result.source || c2pa.claimGenerator;
+          c2paClassified = true;
         } else if (isCamera) {
           result.reasons.push("C2PA Content Credentials from capture device (camera/phone) — not AI-generated.");
           result.verdict = "likely_real";
           result.source = result.source || c2pa.claimGenerator;
-        } else {
-          result.reasons.push("C2PA Content Credentials present; source unknown (not classified as AI).");
-          result.verdict = "uncertain";
-          result.source = result.source || c2pa.claimGenerator;
+          c2paClassified = true;
         }
-      } else {
-        result.reasons.push("C2PA Content Credentials present; no claim generator (not classified as AI).");
+      }
+      if (!c2paClassified && c2pa.decodedText) {
+        const blobLower = c2pa.decodedText.toLowerCase();
+        for (const ai of C2PA_CLAIM_AI) {
+          if (blobLower.includes(ai)) {
+            signals.c2pa = true;
+            result.verdict = "ai_detected";
+            result.reasons.push("C2PA Content Credentials found — AI tool name in manifest.");
+            result.source = result.source || ai;
+            c2paClassified = true;
+            break;
+          }
+        }
+      }
+      if (!c2paClassified) {
+        result.reasons.push(
+          c2pa.claimGenerator
+            ? "C2PA Content Credentials present; source unknown (not classified as AI)."
+            : "C2PA Content Credentials present; no claim generator (not classified as AI)."
+        );
         result.verdict = "uncertain";
+        if (c2pa.claimGenerator) result.source = result.source || c2pa.claimGenerator;
       }
       if (c2pa.signer) result.fingerprint.signer = c2pa.signer;
     }

@@ -665,7 +665,7 @@
     "gemini":"Google Gemini","canva ai":"Canva AI","grok":"Grok (xAI)",
   };
   // C2PA claim_generator: camera (not AI) vs AI — so we don't flag camera photos
-  const C2PA_CLAIM_CAMERA = ["leica","sony","canon","nikon","om system","fujifilm","iphone","pixel","content authenticity","cai ","phase one","capture one","camera","pentax","panasonic","lumix","olympus"];
+  const C2PA_CLAIM_CAMERA = ["leica","sony","canon","nikon","om system","fujifilm","iphone","pixel","phase one","capture one","camera","pentax","panasonic","lumix","olympus"];
   const C2PA_CLAIM_AI = ["dall-e","dall·e","firefly","midjourney","openai","stability","imagen","leonardo","ideogram","flux","microsoft designer","bing","canva","runway","sora","veo","luma","pika","kling","gemini","replicate","fal.ai","playground"];
 
   function scanBuffer(buffer, url) {
@@ -681,6 +681,7 @@
     if (!c2paFound && /c2pa|c2cl|contentcredentials/i.test(text)) c2paFound = true;
     if (c2paFound) {
       result.fingerprint.c2pa = "JUMBF superbox detected";
+      let c2paClassified = false;
       const genMatch = text.match(/claim_generator["\s:=]+([^"<\x00]{4,80})/i);
       const claimGenerator = genMatch ? genMatch[1].trim() : null;
       if (claimGenerator) {
@@ -693,18 +694,31 @@
           result.verdict = "ai_detected";
           result.reasons.push("C2PA Content Credentials from an AI tool.");
           result.source = result.source || claimGenerator;
+          c2paClassified = true;
         } else if (isCamera) {
           result.reasons.push("C2PA from capture device (camera/phone) — not AI-generated.");
           result.verdict = "likely_real";
           result.source = result.source || claimGenerator;
-        } else {
-          result.reasons.push("C2PA present; source unknown (not classified as AI).");
-          result.verdict = "uncertain";
-          result.source = result.source || claimGenerator;
+          c2paClassified = true;
         }
-      } else {
-        result.reasons.push("C2PA present; no claim generator (not classified as AI).");
+      }
+      if (!c2paClassified) {
+        const blobLower = text.toLowerCase();
+        for (const ai of C2PA_CLAIM_AI) {
+          if (blobLower.includes(ai)) {
+            signals.c2pa = true;
+            result.verdict = "ai_detected";
+            result.reasons.push("C2PA Content Credentials found — AI tool name in manifest.");
+            result.source = result.source || ai;
+            c2paClassified = true;
+            break;
+          }
+        }
+      }
+      if (!c2paClassified) {
+        result.reasons.push(claimGenerator ? "C2PA present; source unknown (not classified as AI)." : "C2PA present; no claim generator (not classified as AI).");
         result.verdict = "uncertain";
+        if (claimGenerator) result.source = result.source || claimGenerator;
       }
     }
 
