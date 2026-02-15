@@ -131,9 +131,11 @@ The 128x128 icon is already in `icons/icon128.png` and will be pulled from the Z
 
 ## 5. Privacy practices
 
-The Chrome Web Store requires you to declare data handling practices.
+The Chrome Web Store requires you to declare data handling practices and provide **justifications** for each permission and for remote code/scripting on the **Privacy practices** tab.
 
-### Permission justifications
+**Full copy-paste text for every required field** (activeTab, host permission, remote code, scripting, storage, single purpose, certification) is in **[PRIVACY_JUSTIFICATIONS.md](PRIVACY_JUSTIFICATIONS.md)**. Use that file when filling the Privacy practices tab; Save Draft when done.
+
+### Permission justifications (quick reference)
 
 | Permission | Justification |
 |---|---|
@@ -147,7 +149,8 @@ The Chrome Web Store requires you to declare data handling practices.
 - **Does this extension collect user data?** No
 - **Does this extension transmit data to remote servers?** No
 - **Does this extension use remote code?** No
-- **Single purpose description**: "Detect AI-generated content on webpages by analyzing metadata"
+- **Single purpose description**: Use the full text from PRIVACY_JUSTIFICATIONS.md (section 6).
+- **Certify** that data usage complies with Developer Program Policies (see PRIVACY_JUSTIFICATIONS.md section 7).
 
 ## 6. Submit for review
 
