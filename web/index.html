@@ -722,6 +722,7 @@
       }
     }
 
+    const text = new TextDecoder("ascii",{fatal:false}).decode(bytes.subarray(0,Math.min(bytes.length,300000)));
     // EXIF / XMP AI signatures
     const lower = text.toLowerCase();
     for (const sig of AI_SIGS) {
