@@ -648,7 +648,7 @@
   // ================================================================
 
   const AI_SIGS = [
-    "dall-e","dall\u00B7e","openai","chatgpt","midjourney","mj",
+    "dall-e","dall\u00B7e","openai","chatgpt","midjourney",
     "stable diffusion","stability ai","stabilityai","stablediffusion",
     "adobe firefly","firefly","imagen","google deepmind","deepmind",
     "leonardo ai","leonardo.ai","ideogram","playground ai",
@@ -681,6 +681,7 @@
     if (!c2paFound && /c2pa|c2cl|contentcredentials/i.test(text)) c2paFound = true;
     if (c2paFound) {
       result.fingerprint.c2pa = "JUMBF superbox detected";
+      signals.c2pa = true;
       const genMatch = text.match(/claim_generator["\s:=]+([^"<\x00]{4,80})/i);
       const claimGenerator = genMatch ? genMatch[1].trim() : null;
       if (claimGenerator) {
@@ -688,14 +689,13 @@
         const g = claimGenerator.toLowerCase();
         const isCamera = C2PA_CLAIM_CAMERA.some(s => g.includes(s));
         const isAi = C2PA_CLAIM_AI.some(s => g.includes(s));
-        if (isCamera) {
-          result.reasons.push("C2PA from capture device (camera/phone) — not AI-generated.");
-          result.verdict = "likely_real";
-          result.source = result.source || claimGenerator;
-        } else if (isAi) {
-          signals.c2pa = true;
+        if (isAi) {
           result.verdict = "ai_detected";
           result.reasons.push("C2PA Content Credentials from an AI tool.");
+          result.source = result.source || claimGenerator;
+        } else if (isCamera) {
+          result.reasons.push("C2PA from capture device (camera/phone) — not AI-generated.");
+          result.verdict = "likely_real";
           result.source = result.source || claimGenerator;
         } else {
           result.reasons.push("C2PA present; source unknown (not classified as AI).");
