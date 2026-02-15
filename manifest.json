@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "AI Content Scanner",
   "version": "2.0.0",
-  "description": "Scan webpages to detect AI-generated images, videos, and text by checking C2PA metadata, EXIF signatures, and known AI tool fingerprints.",
+  "description": "Scan webpages for AI-generated images, videos, and text. Checks C2PA, EXIF, SynthID, URL patterns, and text heuristics.",
   "permissions": [
     "activeTab",
     "storage",
